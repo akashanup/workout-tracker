@@ -6,11 +6,12 @@ A Progressive Web App (PWA) for tracking workouts using Google Sheets as the dat
 
 - 📊 **Your data stays in your Google Drive** - Each user's workout data is stored in their own Google Sheet
 - 📱 **Works as an installable app** - PWA support for Android and iOS
-- 🔒 **Secure OAuth authentication** - Uses Google Identity Services
-- � **User profile display** - Shows your Google profile picture and name
+- 🔒 **Minimal permissions** - Only accesses spreadsheets created by this app, not your other files
+- 👤 **User profile display** - Shows your Google profile picture and name
 - 📅 **Week-based navigation** - Easy date selection with weekly view
 - 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core
-- 💾 **Auto-creates your workout sheet** - Normalized schema with body parts and exercises pre-seeded
+- 💾 **Smart spreadsheet management** - Automatically finds existing sheet or creates a new one
+- 🔍 **Configurable sheet name** - Custom name via environment variable or auto-generated from username
 - ⚠️ **Smart error handling** - User-friendly messages for token expiry and network errors
 
 ## Tech Stack
@@ -45,7 +46,7 @@ Before running the app, you need to configure a Google Cloud project:
    - User support email: Your email
    - Developer contact: Your email
 4. Add scopes:
-   - `https://www.googleapis.com/auth/spreadsheets`
+   - `https://www.googleapis.com/auth/drive.file` (only access files created by this app)
 5. Add test users (your Google account email) if in testing mode
 
 ### 4. Create OAuth 2.0 Credentials
@@ -79,6 +80,10 @@ Before running the app, you need to configure a Google Cloud project:
     
     # Your GitHub repository name (for GitHub Pages deployment)
     VITE_REPO_NAME=your-repo-name
+    
+    # (Optional) Custom spreadsheet name
+    # If not set, defaults to "{YourName}WorkoutTracker"
+    # VITE_SHEET_NAME=MyCustomWorkoutTracker
     ```
 
 > **Note:** The `.env` file is gitignored and should never be committed to version control.
@@ -188,7 +193,7 @@ This creates a `dist/` folder with all static files ready for deployment.
 
 #### Option A: Using GitHub Actions (Recommended)
 
-Create `.github/workflows/deploy.yml`:
+The workflow file is already included at `.github/workflows/deploy.yml`:
 
 ```yaml
 name: Deploy to GitHub Pages
@@ -197,8 +202,17 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -218,24 +232,42 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_REPO_NAME: ${{ secrets.VITE_REPO_NAME }}
       
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: './dist'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 ```
 
-> **Important:** Add these secrets to your repository:
-> Go to **Settings > Secrets and variables > Actions > New repository secret**
-    > - `VITE_GOOGLE_CLIENT_ID` - Your Google OAuth Client ID
-    > - `VITE_REPO_NAME` - Your GitHub repository name
+> **Important Setup Steps:**
+>
+> 1. **Configure GitHub Pages source:**
+>    - Go to **Settings > Pages**
+>    - Under "Build and deployment", set **Source** to **GitHub Actions**
+>
+> 2. **Add repository secrets:**
+>    - Go to **Settings > Secrets and variables > Actions > New repository secret**
+>    - Add `VITE_GOOGLE_CLIENT_ID` - Your Google OAuth Client ID
+>    - Add `VITE_REPO_NAME` - Your GitHub repository name
 
 #### Option B: Manual Deployment
 
 1. Create `.env` file with your `VITE_GOOGLE_CLIENT_ID` and `VITE_REPO_NAME`
 2. Build the project: `npm run build`
-3. Push the `dist/` folder to the `gh-pages` branch
-4. In GitHub repo settings, set Pages source to `gh-pages` branch
+3. Deploy the `dist/` folder to your preferred static hosting
 
 ### Step 4: Configure OAuth for GitHub Pages
 
@@ -285,7 +317,10 @@ Create the following icon files in the `public/` folder:
 
 - The app runs entirely in the browser with no backend server
 - Each user's data is isolated in their own Google Sheet
-- The sheet ID is stored in localStorage after first login
+- On login, the app searches for an existing spreadsheet by name before creating a new one
+- Spreadsheet name defaults to `{UserName}WorkoutTracker` (e.g., "JohnDoeWorkoutTracker")
+- Custom spreadsheet name can be set via `VITE_SHEET_NAME` environment variable
+- The sheet ID is stored in localStorage for faster subsequent access
 - Access tokens are refreshed automatically
 
 ## Troubleshooting

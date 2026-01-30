@@ -17,9 +17,9 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
 
 - Tech stack: React + TypeScript + Vite.
 - Architecture: 100% frontend-only.
-- Data storage: Google Sheets API v4 (NOT Drive API), with each user using their own spreadsheet.
-- Authentication: Google OAuth in the browser using Google Identity Services or gapi, with limited scope such as:
-  - <https://www.googleapis.com/auth/spreadsheets>
+- Data storage: Google Sheets API v4, with each user using their own spreadsheet.
+- Authentication: Google OAuth in the browser using Google Identity Services or gapi, with minimal scope:
+  - `https://www.googleapis.com/auth/drive.file` (only access files created by this app)
 - Users: ~5–10 users, each with their own Google account and their own workout spreadsheet.
 - No central backend, no shared database, no shared server logic.
 
@@ -30,10 +30,12 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   - Opens the URL.
   - Signs in with their Google account.
   - On first login, the app:
-    - Creates a new Google Sheet in their Drive (e.g., "MyWorkoutTracker").
-    - Initializes multiple tabs with a normalized schema.
+    - Searches for an existing spreadsheet by name (e.g., "{UserName}WorkoutTracker").
+    - If found, uses the existing spreadsheet.
+    - If not found, creates a new Google Sheet and initializes it with a normalized schema.
     - Optionally seeds some default body parts & exercises.
   - The app stores that spreadsheetId in localStorage so future sessions reuse the same sheet.
+  - Spreadsheet name is configurable via `VITE_SHEET_NAME` environment variable.
 
 ### FUNCTIONAL UI REQUIREMENTS (MVP 1.0)
 
@@ -128,6 +130,7 @@ Please walk me through the solution in structured sections with concrete TypeScr
      - Create a `.env` file (gitignored) with:
        - `VITE_GOOGLE_CLIENT_ID` - The OAuth 2.0 Client ID from Google Cloud Console.
        - `VITE_REPO_NAME` - The GitHub repository name for deployment base path.
+       - `VITE_SHEET_NAME` - (Optional) Custom spreadsheet name. Defaults to `{UserName}WorkoutTracker`.
      - Create a `.env.example` file (committed) as a template for other developers.
      - Access variables using `import.meta.env.VITE_GOOGLE_CLIENT_ID`.
    - Implement a small `googleAuth.ts` module that:
@@ -150,11 +153,18 @@ Please walk me through the solution in structured sections with concrete TypeScr
    - Create a `googleSheetsClient.ts` module that:
      - Uses the access token from `googleAuth` to call the Google Sheets API v4 via `fetch`.
      - Exposes helper functions:
+       - `getSpreadsheetName(): string`:
+         - Returns `VITE_SHEET_NAME` from environment if set.
+         - Otherwise returns `{UserName}WorkoutTracker` (e.g., "JohnDoeWorkoutTracker").
+       - `findSpreadsheetByName(name: string): Promise<string | null>`:
+         - Uses Google Drive API to search for existing spreadsheet by name.
+         - Returns spreadsheet ID if found, null otherwise.
        - `getOrCreateWorkoutSpreadsheet(): Promise<string>`:
          - Check `localStorage` for `spreadsheetId`.
-         - If found, return it.
-         - If not found:
-           - Create a new spreadsheet (e.g. titled "MyWorkoutTracker").
+         - If found and still exists, return it.
+         - If not found in localStorage, search for existing spreadsheet by name.
+         - If found by name, store in localStorage and return it.
+         - If not found anywhere, create a new spreadsheet:
            - Call an `initWorkoutSpreadsheet(spreadsheetId)` function.
            - Store the `spreadsheetId` in localStorage.
            - Return the new id.
@@ -166,6 +176,7 @@ Please walk me through the solution in structured sections with concrete TypeScr
          - Sets up column headers on each sheet using `batchUpdate`.
          - Optionally seeds a few default BodyParts and Exercises (e.g., Chest, Back, Legs, Squats, Push-ups, etc.).
    - Show the exact JSON payloads or helper functions to:
+     - Search for existing spreadsheet by name using Drive API.
      - Create sheets (tabs) if they do not exist.
      - Set values for header rows.
      - Insert initial data rows.

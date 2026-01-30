@@ -11,11 +11,28 @@ import {
   DEFAULT_EXERCISES,
   DEFAULT_STRENGTH_EXERCISES
 } from '../types/models';
-import { isSignedIn } from './googleAuth';
+import { isSignedIn, getAuthState } from './googleAuth';
 
 // Storage key for sheet ID
 const SHEET_ID_KEY = 'workout_sheet_id';
-const SPREADSHEET_NAME = 'MyWorkoutTracker';
+
+/**
+ * Get the spreadsheet name from env or generate default from user name
+ */
+function getSpreadsheetName(): string {
+  // Check for custom name in environment variable
+  const envSheetName = import.meta.env.VITE_SHEET_NAME as string | undefined;
+  if (envSheetName && envSheetName.trim()) {
+    return envSheetName.trim();
+  }
+
+  // Default: UserName + "WorkoutTracker"
+  const authState = getAuthState();
+  const userName = authState.userName || 'My';
+  // Remove spaces and special characters from username
+  const sanitizedName = userName.replace(/[^a-zA-Z0-9]/g, '');
+  return `${sanitizedName}WorkoutTracker`;
+}
 
 /**
  * Generate a unique ID
@@ -60,13 +77,46 @@ async function checkSpreadsheetExists(sheetId: string): Promise<boolean> {
 }
 
 /**
+ * Search for an existing spreadsheet by name using Google Drive API
+ * Returns the spreadsheet ID if found, null otherwise
+ */
+async function findSpreadsheetByName(name: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(name)}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name)`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('workout_access_token')}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to search for spreadsheet:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.files && data.files.length > 0) {
+      // Return the first matching spreadsheet
+      return data.files[0].id;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error searching for spreadsheet:', error);
+    return null;
+  }
+}
+
+/**
  * Create a new spreadsheet
  */
-async function createSpreadsheet(): Promise<string> {
+async function createSpreadsheet(name: string): Promise<string> {
   const response = await window.gapi.client.sheets.spreadsheets.create({
     resource: {
       properties: {
-        title: SPREADSHEET_NAME
+        title: name
       },
       sheets: [
         { properties: { title: SHEET_NAMES.BODY_PARTS, index: 0 } },
@@ -209,6 +259,9 @@ export async function getOrCreateWorkoutSheet(): Promise<string> {
     throw new Error('User not signed in');
   }
 
+  const spreadsheetName = getSpreadsheetName();
+  console.log(`Looking for spreadsheet: ${spreadsheetName}`);
+
   // Check for stored sheet ID
   const storedId = getStoredSheetId();
   
@@ -216,14 +269,25 @@ export async function getOrCreateWorkoutSheet(): Promise<string> {
     // Verify the sheet still exists
     const exists = await checkSpreadsheetExists(storedId);
     if (exists) {
+      console.log(`Using stored spreadsheet ID: ${storedId}`);
       return storedId;
     }
     // Sheet was deleted, clear stored ID
+    console.log('Stored spreadsheet no longer exists, clearing...');
     clearStoredSheetId();
   }
 
+  // Search for existing spreadsheet by name
+  const existingSheetId = await findSpreadsheetByName(spreadsheetName);
+  if (existingSheetId) {
+    console.log(`Found existing spreadsheet: ${existingSheetId}`);
+    storeSheetId(existingSheetId);
+    return existingSheetId;
+  }
+
   // Create new spreadsheet
-  const newSheetId = await createSpreadsheet();
+  console.log(`Creating new spreadsheet: ${spreadsheetName}`);
+  const newSheetId = await createSpreadsheet(spreadsheetName);
   
   // Initialize with schema and seed data
   await initWorkoutSheet(newSheetId);
