@@ -30,12 +30,12 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   - Opens the URL.
   - Signs in with their Google account.
   - On first login, the app:
-    - Searches for an existing spreadsheet by name (e.g., "{UserName}WorkoutTracker").
+    - Searches for an existing spreadsheet by name (default: "MyWorkoutTracker").
     - If found, uses the existing spreadsheet.
     - If not found, creates a new Google Sheet and initializes it with a normalized schema.
     - Optionally seeds some default body parts & exercises.
   - The app stores that spreadsheetId in localStorage so future sessions reuse the same sheet.
-  - Spreadsheet name is configurable via `VITE_SHEET_NAME` environment variable.
+  - Spreadsheet name is configurable via `VITE_SHEET_NAME` environment variable (defaults to "MyWorkoutTracker").
 
 ### FUNCTIONAL UI REQUIREMENTS (MVP 1.0)
 
@@ -130,7 +130,7 @@ Please walk me through the solution in structured sections with concrete TypeScr
      - Create a `.env` file (gitignored) with:
        - `VITE_GOOGLE_CLIENT_ID` - The OAuth 2.0 Client ID from Google Cloud Console.
        - `VITE_REPO_NAME` - The GitHub repository name for deployment base path.
-       - `VITE_SHEET_NAME` - (Optional) Custom spreadsheet name. Defaults to `{UserName}WorkoutTracker`.
+       - `VITE_SHEET_NAME` - (Optional) Custom spreadsheet name. Defaults to "MyWorkoutTracker".
      - Create a `.env.example` file (committed) as a template for other developers.
      - Access variables using `import.meta.env.VITE_GOOGLE_CLIENT_ID`.
    - Implement a small `googleAuth.ts` module that:
@@ -155,7 +155,7 @@ Please walk me through the solution in structured sections with concrete TypeScr
      - Exposes helper functions:
        - `getSpreadsheetName(): string`:
          - Returns `VITE_SHEET_NAME` from environment if set.
-         - Otherwise returns `{UserName}WorkoutTracker` (e.g., "JohnDoeWorkoutTracker").
+         - Otherwise returns the fixed default "MyWorkoutTracker".
        - `findSpreadsheetByName(name: string): Promise<string | null>`:
          - Uses Google Drive API to search for existing spreadsheet by name.
          - Returns spreadsheet ID if found, null otherwise.

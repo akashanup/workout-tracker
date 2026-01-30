@@ -11,7 +11,7 @@ A Progressive Web App (PWA) for tracking workouts using Google Sheets as the dat
 - 📅 **Week-based navigation** - Easy date selection with weekly view
 - 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core
 - 💾 **Smart spreadsheet management** - Automatically finds existing sheet or creates a new one
-- 🔍 **Configurable sheet name** - Custom name via environment variable or auto-generated from username
+- 🔍 **Configurable sheet name** - Custom name via environment variable (defaults to "MyWorkoutTracker")
 - ⚠️ **Smart error handling** - User-friendly messages for token expiry and network errors
 
 ## Tech Stack
@@ -82,7 +82,7 @@ Before running the app, you need to configure a Google Cloud project:
     VITE_REPO_NAME=your-repo-name
     
     # (Optional) Custom spreadsheet name
-    # If not set, defaults to "{YourName}WorkoutTracker"
+    # If not set, defaults to "MyWorkoutTracker"
     # VITE_SHEET_NAME=MyCustomWorkoutTracker
     ```
 
@@ -318,7 +318,7 @@ Create the following icon files in the `public/` folder:
 - The app runs entirely in the browser with no backend server
 - Each user's data is isolated in their own Google Sheet
 - On login, the app searches for an existing spreadsheet by name before creating a new one
-- Spreadsheet name defaults to `{UserName}WorkoutTracker` (e.g., "JohnDoeWorkoutTracker")
+- Spreadsheet name defaults to `MyWorkoutTracker`
 - Custom spreadsheet name can be set via `VITE_SHEET_NAME` environment variable
 - The sheet ID is stored in localStorage for faster subsequent access
 - Access tokens are refreshed automatically

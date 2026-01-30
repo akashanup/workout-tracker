@@ -11,13 +11,13 @@ import {
   DEFAULT_EXERCISES,
   DEFAULT_STRENGTH_EXERCISES
 } from '../types/models';
-import { isSignedIn, getAuthState } from './googleAuth';
+import { isSignedIn } from './googleAuth';
 
 // Storage key for sheet ID
 const SHEET_ID_KEY = 'workout_sheet_id';
 
 /**
- * Get the spreadsheet name from env or generate default from user name
+ * Get the spreadsheet name from env or use a fixed default
  */
 function getSpreadsheetName(): string {
   // Check for custom name in environment variable
@@ -26,12 +26,8 @@ function getSpreadsheetName(): string {
     return envSheetName.trim();
   }
 
-  // Default: UserName + "WorkoutTracker"
-  const authState = getAuthState();
-  const userName = authState.userName || 'My';
-  // Remove spaces and special characters from username
-  const sanitizedName = userName.replace(/[^a-zA-Z0-9]/g, '');
-  return `${sanitizedName}WorkoutTracker`;
+  // Use a fixed default name to avoid timing issues with username loading
+  return 'MyWorkoutTracker';
 }
 
 /**
