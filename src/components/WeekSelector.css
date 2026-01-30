@@ -1,0 +1,137 @@
+.week-selector {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.week-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.week-nav-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 8px;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.week-nav-button:hover {
+  background: #e5e7eb;
+}
+
+.week-nav-button:active {
+  transform: scale(0.95);
+}
+
+.week-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.month-year {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.today-button {
+  padding: 4px 12px;
+  border: 1px solid #4f46e5;
+  background: transparent;
+  color: #4f46e5;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.today-button:hover {
+  background: #4f46e5;
+  color: white;
+}
+
+.week-days {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.day-button {
+  flex: 1;
+  min-width: 44px;
+  padding: 8px 4px;
+  border: 2px solid transparent;
+  background: #f9fafb;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.day-button:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.day-button.today {
+  border-color: #4f46e5;
+}
+
+.day-button.selected {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.day-button.selected .day-name,
+.day-button.selected .day-number {
+  color: white;
+}
+
+.day-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.day-number {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+@media (max-width: 480px) {
+  .week-days {
+    gap: 4px;
+  }
+  
+  .day-button {
+    min-width: 40px;
+    padding: 6px 2px;
+  }
+  
+  .day-number {
+    font-size: 16px;
+  }
+}

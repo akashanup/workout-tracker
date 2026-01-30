@@ -1,0 +1,131 @@
+.exercise-row {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.exercise-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.exercise-row-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.input-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.body-part-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.exercise-group {
+  flex: 2;
+  min-width: 160px;
+}
+
+.custom-name-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.number-group {
+  flex: 0 0 80px;
+}
+
+.select-input,
+.text-input,
+.number-input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #1f2937;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.select-input:focus,
+.text-input:focus,
+.number-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.select-input:disabled,
+.text-input:disabled,
+.number-input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.number-input {
+  text-align: center;
+}
+
+.delete-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #fef2f2;
+  color: #ef4444;
+  border-radius: 6px;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.delete-button:hover {
+  background: #fee2e2;
+}
+
+.delete-button:active {
+  background: #fecaca;
+}
+
+@media (max-width: 600px) {
+  .exercise-row-main {
+    flex-direction: column;
+  }
+  
+  .body-part-group,
+  .exercise-group,
+  .custom-name-group {
+    min-width: 100%;
+  }
+  
+  .exercise-row-details {
+    justify-content: space-between;
+  }
+  
+  .number-group {
+    flex: 1;
+    min-width: 70px;
+  }
+}

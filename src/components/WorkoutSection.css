@@ -1,0 +1,84 @@
+.workout-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-left: 4px solid;
+}
+
+.section-icon {
+  font-size: 24px;
+}
+
+.section-title {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.section-count {
+  font-size: 14px;
+  color: #6b7280;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+}
+
+.section-content {
+  padding: 16px 20px;
+}
+
+.empty-section {
+  text-align: center;
+  padding: 24px;
+  color: #6b7280;
+}
+
+.empty-section p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+.add-first-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.add-first-button:hover {
+  opacity: 0.9;
+}
+
+.add-first-button:active {
+  transform: scale(0.98);
+}
+
+.add-exercise-button {
+  width: 100%;
+  padding: 12px;
+  border: 2px dashed;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-exercise-button:hover {
+  background: #f9fafb;
+}

@@ -1,0 +1,397 @@
+/**
+ * Workout Repository Service
+ * Handles reading and writing workout data to Google Sheets
+ */
+
+import {
+  BodyPart,
+  Exercise,
+  WorkoutEntry,
+  WorkoutEntryUI,
+  WorkoutDayData,
+  SHEET_NAMES,
+  SectionType,
+  ExerciseType
+} from '../types/models';
+
+/**
+ * Custom error class for token expiry
+ */
+export class TokenExpiredError extends Error {
+  constructor(message: string = 'Your session has expired. Please sign in again.') {
+    super(message);
+    this.name = 'TokenExpiredError';
+  }
+}
+
+/**
+ * Custom error class for network errors
+ */
+export class NetworkError extends Error {
+  constructor(message: string = 'Network error. Please check your connection and try again.') {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
+
+/**
+ * Check if an error indicates token expiry (401 Unauthorized)
+ */
+function isTokenExpiredError(error: unknown): boolean {
+  if (error && typeof error === 'object') {
+    // Check for gapi error format
+    if ('status' in error && (error as { status: number }).status === 401) {
+      return true;
+    }
+    // Check for result.error.code format
+    if ('result' in error) {
+      const result = (error as { result?: { error?: { code?: number } } }).result;
+      if (result?.error?.code === 401) {
+        return true;
+      }
+    }
+    // Check for error message
+    if ('message' in error) {
+      const message = (error as { message: string }).message.toLowerCase();
+      if (message.includes('unauthorized') || message.includes('invalid credentials') || message.includes('token')) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if an error is a network error
+ */
+function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    return true;
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message: string }).message.toLowerCase();
+    return message.includes('network') || 
+           message.includes('failed to fetch') || 
+           message.includes('offline') ||
+           message.includes('connection');
+  }
+  return false;
+}
+
+/**
+ * Wrap an API call with standardized error handling
+ * Transforms Google API errors into user-friendly error types
+ */
+export async function withErrorHandling<T>(
+  apiCall: () => Promise<T>
+): Promise<T> {
+  try {
+    return await apiCall();
+  } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
+    if (isNetworkError(error)) {
+      throw new NetworkError();
+    }
+    // Re-throw other errors as-is
+    throw error;
+  }
+}
+
+/**
+ * Generate a unique ID
+ */
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+
+/**
+ * Load all body parts from the sheet
+ */
+export async function loadBodyParts(sheetId: string): Promise<BodyPart[]> {
+  try {
+    const response = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAMES.BODY_PARTS}!A2:B`
+    });
+
+    const rows = response.result.values || [];
+    return rows.map(row => ({
+      id: row[0] || '',
+      name: row[1] || ''
+    }));
+  } catch (error) {
+    console.error('Error loading body parts:', error);
+    return [];
+  }
+}
+
+/**
+ * Load all exercises from the sheet
+ */
+export async function loadExercises(sheetId: string): Promise<Exercise[]> {
+  try {
+    const response = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAMES.EXERCISES}!A2:D`
+    });
+
+    const rows = response.result.values || [];
+    return rows.map(row => ({
+      id: row[0] || '',
+      bodyPartId: row[1] || null,
+      name: row[2] || '',
+      type: (row[3] || 'strength') as ExerciseType
+    }));
+  } catch (error) {
+    console.error('Error loading exercises:', error);
+    return [];
+  }
+}
+
+/**
+ * Load workout entries for a specific date
+ */
+export async function loadWorkoutEntriesForDate(
+  sheetId: string,
+  date: string
+): Promise<WorkoutEntry[]> {
+  try {
+    const response = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:I`
+    });
+
+    const rows = response.result.values || [];
+    
+    // Filter rows for the specific date
+    const entries: WorkoutEntry[] = rows
+      .filter(row => row[1] === date)
+      .map(row => ({
+        id: row[0] || '',
+        date: row[1] || '',
+        section: (row[2] || 'STRENGTH') as SectionType,
+        bodyPartId: row[3] || null,
+        exerciseId: row[4] || null,
+        customExerciseName: row[5] || null,
+        reps: row[6] ? parseInt(row[6], 10) : null,
+        sets: row[7] ? parseInt(row[7], 10) : null,
+        restSeconds: row[8] ? parseInt(row[8], 10) : null
+      }));
+
+    return entries;
+  } catch (error) {
+    console.error('Error loading workout entries:', error);
+    return [];
+  }
+}
+
+/**
+ * Load complete workout data for a date with resolved references
+ */
+export async function loadWorkoutForDate(
+  sheetId: string,
+  date: string
+): Promise<WorkoutDayData> {
+  // Load all reference data and entries in parallel
+  const [bodyParts, exercises, entries] = await Promise.all([
+    loadBodyParts(sheetId),
+    loadExercises(sheetId),
+    loadWorkoutEntriesForDate(sheetId, date)
+  ]);
+
+  // Create lookup maps
+  const bodyPartMap = new Map<string, string>();
+  bodyParts.forEach(bp => bodyPartMap.set(bp.id, bp.name));
+
+  const exerciseMap = new Map<string, string>();
+  exercises.forEach(ex => exerciseMap.set(ex.id, ex.name));
+
+  // Enrich entries with resolved names
+  const enrichedEntries: WorkoutEntryUI[] = entries.map(entry => ({
+    ...entry,
+    bodyPartName: entry.bodyPartId ? bodyPartMap.get(entry.bodyPartId) : undefined,
+    exerciseName: entry.exerciseId ? exerciseMap.get(entry.exerciseId) : undefined
+  }));
+
+  // Group entries by section
+  const warmup = enrichedEntries.filter(e => e.section === 'WARMUP');
+  const strength = enrichedEntries.filter(e => e.section === 'STRENGTH');
+  const cardio = enrichedEntries.filter(e => e.section === 'CARDIO');
+  const core = enrichedEntries.filter(e => e.section === 'CORE');
+
+  return {
+    date,
+    warmup,
+    strength,
+    cardio,
+    core
+  };
+}
+
+/**
+ * Get all entries for all dates (needed to find rows to delete)
+ */
+async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number; entry: WorkoutEntry }[]> {
+  try {
+    const response = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:I`
+    });
+
+    const rows = response.result.values || [];
+    
+    return rows.map((row, index) => ({
+      rowIndex: index + 2, // +2 because we start at row 2 (after header)
+      entry: {
+        id: row[0] || '',
+        date: row[1] || '',
+        section: (row[2] || 'STRENGTH') as SectionType,
+        bodyPartId: row[3] || null,
+        exerciseId: row[4] || null,
+        customExerciseName: row[5] || null,
+        reps: row[6] ? parseInt(row[6], 10) : null,
+        sets: row[7] ? parseInt(row[7], 10) : null,
+        restSeconds: row[8] ? parseInt(row[8], 10) : null
+      }
+    }));
+  } catch (error) {
+    console.error('Error getting all workout entries:', error);
+    return [];
+  }
+}
+
+/**
+ * Save workout data for a specific date
+ * This clears existing entries for the date and writes new ones
+ */
+export async function saveWorkoutForDate(
+  sheetId: string,
+  date: string,
+  data: WorkoutDayData
+): Promise<void> {
+  // Get all current entries to find which rows to clear
+  const allEntries = await getAllWorkoutEntries(sheetId);
+  
+  // Find rows for this date (we need to delete them)
+  const rowsToDelete = allEntries
+    .filter(({ entry }) => entry.date === date)
+    .map(({ rowIndex }) => rowIndex)
+    .sort((a, b) => b - a); // Sort descending to delete from bottom up
+
+  // Get the sheet ID (numeric) for the WorkoutEntries sheet
+  const spreadsheet = await window.gapi.client.sheets.spreadsheets.get({
+    spreadsheetId: sheetId
+  });
+
+  const workoutEntriesSheet = (spreadsheet.result as { sheets: { properties: { title: string; sheetId: number } }[] }).sheets?.find(
+    (s: { properties: { title: string } }) => s.properties.title === SHEET_NAMES.WORKOUT_ENTRIES
+  );
+
+  if (!workoutEntriesSheet) {
+    throw new Error('WorkoutEntries sheet not found');
+  }
+
+  const numericSheetId = workoutEntriesSheet.properties.sheetId;
+
+  // Delete existing rows for this date (if any)
+  if (rowsToDelete.length > 0) {
+    const deleteRequests = rowsToDelete.map(rowIndex => ({
+      deleteDimension: {
+        range: {
+          sheetId: numericSheetId,
+          dimension: 'ROWS',
+          startIndex: rowIndex - 1, // 0-indexed
+          endIndex: rowIndex // exclusive
+        }
+      }
+    }));
+
+    await window.gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      resource: { requests: deleteRequests }
+    });
+  }
+
+  // Combine all entries
+  const allNewEntries = [
+    ...data.warmup,
+    ...data.strength,
+    ...data.cardio,
+    ...data.core
+  ];
+
+  if (allNewEntries.length === 0) {
+    return; // Nothing to save
+  }
+
+  // Prepare rows for insertion
+  const values = allNewEntries.map(entry => [
+    entry.id || generateId(),
+    date,
+    entry.section,
+    entry.bodyPartId || '',
+    entry.exerciseId || '',
+    entry.customExerciseName || '',
+    entry.reps ?? '',
+    entry.sets ?? '',
+    entry.restSeconds ?? ''
+  ]);
+
+  // Append new rows
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A:I`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: { values }
+  });
+}
+
+/**
+ * Add a new custom exercise to the Exercises sheet
+ */
+export async function addCustomExercise(
+  sheetId: string,
+  exercise: Omit<Exercise, 'id'>
+): Promise<Exercise> {
+  const newExercise: Exercise = {
+    ...exercise,
+    id: generateId()
+  };
+
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: `${SHEET_NAMES.EXERCISES}!A:D`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: {
+      values: [[
+        newExercise.id,
+        newExercise.bodyPartId || '',
+        newExercise.name,
+        newExercise.type
+      ]]
+    }
+  });
+
+  return newExercise;
+}
+
+/**
+ * Create an empty workout entry for a section
+ */
+export function createEmptyEntry(section: SectionType, date: string): WorkoutEntryUI {
+  return {
+    id: generateId(),
+    date,
+    section,
+    bodyPartId: null,
+    exerciseId: null,
+    customExerciseName: null,
+    reps: null,
+    sets: null,
+    restSeconds: null
+  };
+}

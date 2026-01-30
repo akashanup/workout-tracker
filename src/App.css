@@ -1,0 +1,225 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #f3f4f6;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+/* Loading State */
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+}
+
+.app-loading h2 {
+  margin: 24px 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.app-loading p {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner.large {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Login State */
+.app-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+.login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.login-header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  color: #1f2937;
+}
+
+.login-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.login-features {
+  margin-bottom: 32px;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  font-size: 14px;
+}
+
+.feature:last-child {
+  border-bottom: none;
+}
+
+.feature span:first-child {
+  font-size: 20px;
+}
+
+.google-sign-in-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.google-sign-in-button:hover {
+  background: #f9fafb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.login-note {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Error State */
+.app-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  background: #f3f4f6;
+}
+
+.error-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.error-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.error-card h2 {
+  margin: 0 0 8px;
+  color: #1f2937;
+}
+
+.error-card p {
+  margin: 0 0 24px;
+  color: #6b7280;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.error-actions button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.error-actions button:first-child {
+  background: #4f46e5;
+  color: white;
+}
+
+.error-actions button.secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.error-actions button:hover {
+  opacity: 0.9;
+}
