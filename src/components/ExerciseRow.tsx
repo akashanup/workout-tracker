@@ -262,8 +262,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
       durationSeconds: totalSeconds > 0 ? totalSeconds : null
     });
   };
-
-  const isUsingCustomName = !entry.exerciseId && entry.customExerciseName;
   
   // For non-strength sections, show metric type toggle
   const showMetricToggle = section !== 'STRENGTH';

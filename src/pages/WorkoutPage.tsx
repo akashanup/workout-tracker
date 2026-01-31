@@ -28,7 +28,7 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ sheetId, onSignOut, userPictu
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -268,95 +268,6 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ sheetId, onSignOut, userPictu
       return null;
     }
   };
-
-  // Validate entries
-  const validateEntries = (): boolean => {
-    if (!workoutData) return false;
-
-    const allEntries = [
-      ...workoutData.warmup,
-      ...workoutData.strength,
-      ...workoutData.cardio,
-      ...workoutData.core
-    ];
-
-    for (const entry of allEntries) {
-      // Check if exercise is selected or custom name is provided
-      if (!entry.exerciseId && !entry.customExerciseName) {
-        setError('Each exercise must have either a selected exercise or a custom name');
-        return false;
-      }
-
-      // Validate reps
-      if (entry.reps !== null && entry.reps < 0) {
-        setError('Reps must be a positive number');
-        return false;
-      }
-
-      // Validate sets
-      if (entry.sets !== null && entry.sets < 0) {
-        setError('Sets must be a positive number');
-        return false;
-      }
-
-      // Validate rest time
-      if (entry.restSeconds !== null && entry.restSeconds < 0) {
-        setError('Rest time must be 0 or greater');
-        return false;
-      }
-
-      // Strength exercises should have body part
-      if (entry.section === 'STRENGTH' && !entry.bodyPartId) {
-        setError('Strength exercises must have a body part selected');
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  // Save workout
-  const handleSave = async () => {
-    if (!workoutData) return;
-
-    // Validate first
-    if (!validateEntries()) {
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-    setIsTokenExpired(false);
-
-    try {
-      await saveWorkoutForDate(sheetId, workoutData.date, workoutData);
-      setSaveSuccess(true);
-      setHasUnsavedChanges(false);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error saving workout:', err);
-      if (err instanceof TokenExpiredError) {
-        setError('Your session has expired. Please sign out and sign in again.');
-        setIsTokenExpired(true);
-      } else if (err instanceof NetworkError) {
-        setError('Network error. Please check your connection and try again.');
-      } else {
-        setError('Failed to save workout. Please try again.');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Count total exercises
-  const totalExercises = workoutData
-    ? workoutData.warmup.length +
-      workoutData.strength.length +
-      workoutData.cardio.length +
-      workoutData.core.length
-    : 0;
 
   return (
     <div className="workout-page">

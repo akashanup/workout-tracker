@@ -2,6 +2,8 @@
 
 A Progressive Web App (PWA) for tracking workouts using Google Sheets as the data store.
 
+⭐ **If you find this project useful, please consider giving it a star!** It helps others discover it and motivates continued development.
+
 ## Features
 
 - 📊 **Your data stays in your Google Drive** - Each user's workout data is stored in their own Google Sheet
