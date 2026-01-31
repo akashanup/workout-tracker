@@ -102,6 +102,7 @@ interface SpreadsheetAPI {
 let tokenClient: TokenClient | null = null;
 let gapiInitialized = false;
 let gisInitialized = false;
+let tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Callbacks for auth state changes
 type AuthCallback = (state: AuthState) => void;
@@ -130,8 +131,12 @@ export async function initGapiClient(): Promise<void> {
         
         if (storedToken && tokenExpiry) {
           const expiryTime = parseInt(tokenExpiry, 10);
-          if (Date.now() < expiryTime) {
+          const remainingTime = expiryTime - Date.now();
+          
+          if (remainingTime > 0) {
             window.gapi.client.setToken({ access_token: storedToken });
+            // Schedule refresh for remaining time (convert ms to seconds)
+            scheduleTokenRefresh(Math.floor(remainingTime / 1000));
             notifyAuthChange();
           } else {
             // Token expired, clear storage
@@ -207,6 +212,9 @@ function handleTokenResponse(response: TokenResponse): void {
   // Set token for gapi client
   window.gapi.client.setToken({ access_token: response.access_token });
 
+  // Schedule token refresh before it expires (5 minutes before expiry)
+  scheduleTokenRefresh(response.expires_in);
+
   // Fetch user profile from Google userinfo endpoint
   fetchUserInfo(response.access_token).then(() => {
     notifyAuthChange();
@@ -214,6 +222,42 @@ function handleTokenResponse(response: TokenResponse): void {
     // Still notify even if user info fetch fails
     notifyAuthChange();
   });
+}
+
+/**
+ * Schedule automatic token refresh before expiry
+ * Refreshes 5 minutes before the token expires
+ */
+function scheduleTokenRefresh(expiresIn: number): void {
+  // Clear any existing timer
+  if (tokenRefreshTimer) {
+    clearTimeout(tokenRefreshTimer);
+    tokenRefreshTimer = null;
+  }
+
+  // Refresh 5 minutes before expiry (or halfway if less than 10 minutes)
+  const refreshTime = Math.max((expiresIn - 300) * 1000, (expiresIn / 2) * 1000);
+  
+  console.log(`Token refresh scheduled in ${Math.round(refreshTime / 1000 / 60)} minutes`);
+  
+  tokenRefreshTimer = setTimeout(() => {
+    console.log('Refreshing token...');
+    refreshToken();
+  }, refreshTime);
+}
+
+/**
+ * Silently refresh the access token
+ */
+function refreshToken(): void {
+  if (!gisInitialized || !tokenClient) {
+    console.error('Cannot refresh token: GIS not initialized');
+    return;
+  }
+
+  // Request a new token without prompt (silent refresh)
+  // This works if the user has previously granted consent
+  tokenClient.requestAccessToken({ prompt: '' });
 }
 
 /**
@@ -271,6 +315,12 @@ export function signIn(): void {
  * Sign out the user
  */
 export function signOut(): void {
+  // Clear token refresh timer
+  if (tokenRefreshTimer) {
+    clearTimeout(tokenRefreshTimer);
+    tokenRefreshTimer = null;
+  }
+
   const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
   
   if (token && typeof window.google !== 'undefined') {

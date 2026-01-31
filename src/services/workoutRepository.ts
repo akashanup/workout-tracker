@@ -171,11 +171,15 @@ export async function loadWorkoutEntriesForDate(
     const rows = response.result.values || [];
     
     // Filter rows for the specific date
+    // Strip apostrophe prefix if present (we add it to prevent date auto-formatting)
     const entries: WorkoutEntry[] = rows
-      .filter(row => row[1] === date)
+      .filter(row => {
+        const rowDate = (row[1] || '').replace(/^'/, '');
+        return rowDate === date;
+      })
       .map(row => ({
         id: row[0] || '',
-        date: row[1] || '',
+        date: (row[1] || '').replace(/^'/, ''),
         section: (row[2] || 'STRENGTH') as SectionType,
         bodyPartId: row[3] || null,
         exerciseId: row[4] || null,
@@ -301,7 +305,7 @@ async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number
       rowIndex: index + 2, // +2 because we start at row 2 (after header)
       entry: {
         id: row[0] || '',
-        date: row[1] || '',
+        date: (row[1] || '').replace(/^'/, ''), // Strip apostrophe prefix if present
         section: (row[2] || 'STRENGTH') as SectionType,
         bodyPartId: row[3] || null,
         exerciseId: row[4] || null,
@@ -427,12 +431,23 @@ export async function saveWorkoutForDate(
   });
 
   // Append new rows
+  // Use USER_ENTERED so dates are properly interpreted as text strings
+  // Prefix dates with apostrophe to force text interpretation
+  const valuesWithTextDates = values.map(row => {
+    const newRow = [...row];
+    // Prefix date column (index 1) with apostrophe to force text
+    if (newRow[1] && typeof newRow[1] === 'string') {
+      newRow[1] = "'" + newRow[1];
+    }
+    return newRow;
+  });
+  
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
     range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A:L`,
-    valueInputOption: 'RAW',
+    valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
-    resource: { values }
+    resource: { values: valuesWithTextDates }
   });
 }
 
