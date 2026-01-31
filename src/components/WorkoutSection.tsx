@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { WorkoutEntryUI, Exercise, BodyPart, SectionType } from '../types/models';
 import ExerciseRow from './ExerciseRow';
 import './WorkoutSection.css';
@@ -15,6 +15,7 @@ interface WorkoutSectionProps {
   onSaveEntry: (index: number) => Promise<void>;
   onAddExercise: (name: string) => Promise<Exercise | null>;
   isSaving?: boolean;
+  defaultExpanded?: boolean;
 }
 
 // Section colors and icons
@@ -36,18 +37,25 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
   onDeleteEntry,
   onSaveEntry,
   onAddExercise,
-  isSaving = false
+  isSaving = false,
+  defaultExpanded = true
 }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const config = SECTION_CONFIG[section];
 
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
+
   return (
-    <div className="workout-section">
+    <div className={`workout-section ${isExpanded ? 'expanded' : 'collapsed'}`}>
       <div 
         className="section-header"
         style={{ 
           backgroundColor: config.bgColor,
           borderColor: config.color
         }}
+        onClick={toggleExpanded}
       >
         <span className="section-icon">{config.icon}</span>
         <h2 className="section-title" style={{ color: config.color }}>
@@ -56,9 +64,13 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
         <span className="section-count">
           {entries.length} {entries.length === 1 ? 'exercise' : 'exercises'}
         </span>
+        <span className={`expand-icon ${isExpanded ? 'expanded' : ''}`}>
+          ▼
+        </span>
       </div>
 
-      <div className="section-content">
+      {isExpanded && (
+        <div className="section-content">
         {entries.length === 0 ? (
           <div className="empty-section">
             <p>No exercises added yet</p>
@@ -101,7 +113,8 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
             </button>
           </>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

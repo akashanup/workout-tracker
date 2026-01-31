@@ -11,12 +11,13 @@ A Progressive Web App (PWA) for tracking workouts using Google Sheets as the dat
 - 🔒 **Minimal permissions** - Only accesses spreadsheets created by this app, not your other files
 - 👤 **User profile display** - Shows your Google profile picture and name
 - 📅 **Week-based navigation** - Easy date selection with weekly view
-- 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core
+- 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core (expandable/collapsible)
 - ⏱️ **Flexible exercise tracking** - Track exercises by reps/sets OR duration (minutes/seconds)
+- 🎯 **Per-set tracking** - Each set records its own reps, weight (kg), and rest time independently
 - 🔄 **Multi-section exercises** - Some exercises (e.g., Running, Cycling) can be used in both Warmup and Cardio
 - 🔍 **Autocomplete exercise input** - Single input field with suggestions as you type, including option to add custom exercises
 - ✏️ **Per-exercise save/edit/delete** - Individual controls for each exercise row
-- ✅ **Smart validation** - Save button only enabled when exercise has complete data (reps AND sets > 0 for reps-based)
+- ✅ **Smart validation** - Save button only enabled when exercise has complete data
 - 📐 **Responsive full-width layout** - All input fields expand to fill available space
 - 💾 **Smart spreadsheet management** - Automatically finds existing sheet or creates a new one
 - 🔍 **Configurable sheet name** - Custom name via environment variable (defaults to "MyWorkoutTracker")
@@ -168,6 +169,8 @@ The app creates a Google Sheet with three tabs:
 
 ### WorkoutEntries Sheet
 
+Each row represents a single SET of an exercise:
+
 | Column             | Type   | Description                                     |
 | ------------------ | ------ | ----------------------------------------------- |
 | id                 | string | Unique identifier                               |
@@ -176,20 +179,24 @@ The app creates a Google Sheet with three tabs:
 | bodyPartId         | string | FK to BodyParts (nullable)                      |
 | exerciseId         | string | FK to Exercises (nullable)                      |
 | customExerciseName | string | Custom name if not using preset                 |
-| reps               | number | Number of repetitions (when metricType='reps')  |
-| sets               | number | Number of sets (when metricType='reps')         |
-| restSeconds        | number | Rest time in seconds                            |
 | metricType         | string | 'reps' or 'duration'                            |
+| setNumber          | number | Set number (1, 2, 3, etc.)                      |
+| reps               | number | Number of repetitions for this set              |
+| weightKg           | number | Weight in kg for this set                       |
 | durationSeconds    | number | Duration in seconds (when metricType='duration')|
+| restSeconds        | number | Rest time in seconds after this set             |
 
 ### Exercise Metric Types
 
 Exercises can be tracked using two different metric types:
 
-- **Reps-based** (`metricType: 'reps'`): Traditional rep/set counting for exercises like Push-ups, Squats
+- **Reps-based** (`metricType: 'reps'`): Each set records reps, weight (kg), and rest time individually
+  - Allows different reps/weight per set (e.g., pyramid sets, drop sets)
+  - Add/remove sets dynamically
+  - Default for Strength section
 - **Duration-based** (`metricType: 'duration'`): Time-based tracking for exercises like Running, Planks, Cycling
 
-The UI automatically shows the appropriate input fields based on the selected metric type.
+The UI shows the appropriate input fields based on the selected metric type.
 
 ### Multi-Section Exercises
 

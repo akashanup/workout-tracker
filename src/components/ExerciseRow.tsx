@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { WorkoutEntryUI, Exercise, BodyPart, SectionType, MetricType } from '../types/models';
+import { WorkoutEntryUI, Exercise, BodyPart, SectionType, MetricType, ExerciseSet } from '../types/models';
 import './ExerciseRow.css';
 
 interface ExerciseRowProps {
@@ -62,17 +62,15 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   const hasData = !!(
     entry.exerciseId || 
     entry.customExerciseName || 
-    entry.reps || 
-    entry.sets || 
-    entry.durationSeconds || 
-    entry.restSeconds
+    entry.sets.some(s => s.reps || s.weightKg || s.restSeconds) || 
+    entry.durationSeconds
   );
 
   // Check if entry has all required data for saving
   const hasExerciseName = !!(entry.exerciseId || entry.customExerciseName);
   const hasMetricData = entry.metricType === 'duration' 
     ? !!(entry.durationSeconds && entry.durationSeconds > 0)
-    : !!(entry.reps && entry.reps > 0 && entry.sets && entry.sets > 0);
+    : entry.sets.some(s => s.reps && s.reps > 0); // At least one set with reps
   const hasRequiredBodyPart = section !== 'STRENGTH' || !!entry.bodyPartId;
   const canSave = hasExerciseName && hasMetricData && hasRequiredBodyPart;
 
@@ -94,11 +92,9 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
 
   // Handle delete with confirmation
   const handleDeleteClick = () => {
-    // Only show confirmation if entry has data
     if (hasData) {
       setShowDeleteConfirm(true);
     } else {
-      // Delete immediately if no data
       performDelete();
     }
   };
@@ -122,39 +118,32 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   };
 
   // Filter exercises by section type OR by applicableSections
-  // For WARMUP and CARDIO sections, use 'cardio' type exercises
   const sectionType = (section === 'WARMUP' || section === 'CARDIO') 
     ? 'cardio' 
     : section.toLowerCase() as 'strength' | 'core';
   
   const filteredExercises = exercises.filter(ex => {
-    // Check if exercise has applicableSections and includes current section
     if (ex.applicableSections && ex.applicableSections.length > 0) {
       return ex.applicableSections.includes(section);
     }
-    // Otherwise fall back to type matching
     return ex.type === sectionType;
   });
 
-  // For strength section, also filter by selected body part if one is selected
   const availableExercises = section === 'STRENGTH' && entry.bodyPartId
     ? filteredExercises.filter(ex => ex.bodyPartId === entry.bodyPartId || !ex.bodyPartId)
     : filteredExercises;
 
-  // Filter suggestions based on input
   const filteredSuggestions = exerciseInput.trim()
     ? availableExercises.filter(ex => 
         ex.name.toLowerCase().includes(exerciseInput.toLowerCase())
       )
     : availableExercises;
 
-  // Handle exercise input change
   const handleExerciseInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setExerciseInput(value);
     setShowSuggestions(true);
     
-    // Check if input matches an existing exercise exactly
     const exactMatch = availableExercises.find(
       ex => ex.name.toLowerCase() === value.toLowerCase()
     );
@@ -176,7 +165,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     }
   };
 
-  // Handle selecting an exercise from suggestions
   const handleSelectExercise = (exercise: Exercise) => {
     setExerciseInput(exercise.name);
     setShowSuggestions(false);
@@ -188,7 +176,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     });
   };
 
-  // Handle adding a new custom exercise
   const handleAddNewExercise = async () => {
     if (!exerciseInput.trim() || !onAddExercise) return;
     
@@ -211,20 +198,8 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
       ...entry,
       bodyPartId,
       bodyPartName: bodyPart?.name,
-      // Reset exercise when body part changes
       exerciseId: null,
       exerciseName: undefined
-    });
-  };
-
-  const handleNumberChange = (
-    field: 'reps' | 'sets' | 'restSeconds' | 'durationSeconds',
-    value: string
-  ) => {
-    const numValue = value === '' ? null : parseInt(value, 10);
-    onUpdate({
-      ...entry,
-      [field]: isNaN(numValue as number) ? null : numValue
     });
   };
 
@@ -232,14 +207,37 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     onUpdate({
       ...entry,
       metricType,
-      // Clear the other metric's values when switching
-      reps: metricType === 'duration' ? null : entry.reps,
-      sets: metricType === 'duration' ? null : entry.sets,
+      sets: metricType === 'duration' ? [] : (entry.sets.length > 0 ? entry.sets : [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }]),
       durationSeconds: metricType === 'reps' ? null : entry.durationSeconds
     });
   };
 
-  // Convert seconds to minutes for display
+  // Handle set field changes
+  const handleSetChange = (setIndex: number, field: keyof ExerciseSet, value: string) => {
+    const numValue = value === '' ? null : (field === 'weightKg' ? parseFloat(value) : parseInt(value, 10));
+    const newSets = [...entry.sets];
+    newSets[setIndex] = {
+      ...newSets[setIndex],
+      [field]: isNaN(numValue as number) ? null : numValue
+    };
+    onUpdate({ ...entry, sets: newSets });
+  };
+
+  // Add a new set
+  const handleAddSet = () => {
+    const newSetNumber = entry.sets.length + 1;
+    const newSets = [...entry.sets, { setNumber: newSetNumber, reps: null, weightKg: null, restSeconds: null }];
+    onUpdate({ ...entry, sets: newSets });
+  };
+
+  // Remove a set
+  const handleRemoveSet = (setIndex: number) => {
+    if (entry.sets.length <= 1) return; // Keep at least one set
+    const newSets = entry.sets.filter((_, i) => i !== setIndex).map((s, i) => ({ ...s, setNumber: i + 1 }));
+    onUpdate({ ...entry, sets: newSets });
+  };
+
+  // Duration handlers
   const durationMinutes = entry.durationSeconds ? Math.floor(entry.durationSeconds / 60) : null;
   const durationRemainingSeconds = entry.durationSeconds ? entry.durationSeconds % 60 : null;
 
@@ -247,23 +245,16 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     const mins = minutes === '' ? 0 : parseInt(minutes, 10);
     const secs = durationRemainingSeconds || 0;
     const totalSeconds = (isNaN(mins) ? 0 : mins) * 60 + secs;
-    onUpdate({
-      ...entry,
-      durationSeconds: totalSeconds > 0 ? totalSeconds : null
-    });
+    onUpdate({ ...entry, durationSeconds: totalSeconds > 0 ? totalSeconds : null });
   };
 
   const handleDurationSecondsChange = (seconds: string) => {
     const secs = seconds === '' ? 0 : parseInt(seconds, 10);
     const mins = durationMinutes || 0;
     const totalSeconds = mins * 60 + (isNaN(secs) ? 0 : secs);
-    onUpdate({
-      ...entry,
-      durationSeconds: totalSeconds > 0 ? totalSeconds : null
-    });
+    onUpdate({ ...entry, durationSeconds: totalSeconds > 0 ? totalSeconds : null });
   };
   
-  // For non-strength sections, show metric type toggle
   const showMetricToggle = section !== 'STRENGTH';
 
   return (
@@ -274,12 +265,8 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
           <div className="delete-confirm-dialog">
             <p>Delete this exercise?</p>
             <div className="delete-confirm-buttons">
-              <button className="confirm-delete-btn" onClick={handleConfirmDelete}>
-                Delete
-              </button>
-              <button className="cancel-delete-btn" onClick={handleCancelDelete}>
-                Cancel
-              </button>
+              <button className="confirm-delete-btn" onClick={handleConfirmDelete}>Delete</button>
+              <button className="cancel-delete-btn" onClick={handleCancelDelete}>Cancel</button>
             </div>
           </div>
         </div>
@@ -287,7 +274,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
 
       {/* Row 1: Exercise name (+ Body Part for Strength, + Metric toggle for others) */}
       <div className="exercise-row-main">
-        {/* Body Part selector (Strength section only) */}
         {section === 'STRENGTH' && (
           <div className="input-group body-part-group">
             <label>Body Part</label>
@@ -299,15 +285,12 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
             >
               <option value="">Select body part...</option>
               {bodyParts.map(bp => (
-                <option key={bp.id} value={bp.id}>
-                  {bp.name}
-                </option>
+                <option key={bp.id} value={bp.id}>{bp.name}</option>
               ))}
             </select>
           </div>
         )}
 
-        {/* Exercise autocomplete input */}
         <div className="input-group exercise-group">
           <label>Exercise</label>
           <div className="exercise-autocomplete">
@@ -334,10 +317,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
                     </div>
                   ))
                 ) : exerciseInput.trim() ? (
-                  <div 
-                    className="suggestion-item add-new"
-                    onClick={handleAddNewExercise}
-                  >
+                  <div className="suggestion-item add-new" onClick={handleAddNewExercise}>
                     + Add "{exerciseInput.trim()}" as new exercise
                   </div>
                 ) : null}
@@ -346,7 +326,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
           </div>
         </div>
 
-        {/* Metric type toggle for non-strength sections - in row 1 */}
         {showMetricToggle && (
           <div className="input-group metric-toggle-group">
             <label>Measure by</label>
@@ -372,45 +351,80 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
         )}
       </div>
 
-      {/* Row 2: Metric inputs */}
+      {/* Row 2: Sets or Duration */}
       <div className="exercise-row-details">
-        {/* Show reps/sets for strength OR when metric type is 'reps' */}
-        {(section === 'STRENGTH' || entry.metricType === 'reps') && (
-          <>
-            {/* Reps */}
-            <div className="input-group number-group">
-              <label>Reps</label>
-              <input
-                type="number"
-                value={entry.reps ?? ''}
-                onChange={(e) => handleNumberChange('reps', e.target.value)}
-                placeholder="0"
-                min="0"
-                className="number-input"
-                disabled={isReadOnly}
-              />
+        {(section === 'STRENGTH' || entry.metricType === 'reps') ? (
+          <div className="sets-container">
+            <div className="sets-header">
+              <span className="sets-label">Sets</span>
+              {!isReadOnly && (
+                <button 
+                  type="button" 
+                  className="add-set-btn"
+                  onClick={handleAddSet}
+                  title="Add set"
+                >
+                  + Add Set
+                </button>
+              )}
             </div>
-
-            {/* Sets */}
-            <div className="input-group number-group">
-              <label>Sets</label>
-              <input
-                type="number"
-                value={entry.sets ?? ''}
-                onChange={(e) => handleNumberChange('sets', e.target.value)}
-                placeholder="0"
-                min="0"
-                className="number-input"
-                disabled={isReadOnly}
-              />
+            <div className="sets-list">
+              {entry.sets.map((set, index) => (
+                <div key={index} className="set-row">
+                  <span className="set-number">{index + 1}</span>
+                  <div className="input-group number-group">
+                    <label>Reps</label>
+                    <input
+                      type="number"
+                      value={set.reps ?? ''}
+                      onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      className="number-input"
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="input-group number-group">
+                    <label>Weight (kg)</label>
+                    <input
+                      type="number"
+                      value={set.weightKg ?? ''}
+                      onChange={(e) => handleSetChange(index, 'weightKg', e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      step="0.5"
+                      className="number-input"
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="input-group number-group">
+                    <label>Rest (sec)</label>
+                    <input
+                      type="number"
+                      value={set.restSeconds ?? ''}
+                      onChange={(e) => handleSetChange(index, 'restSeconds', e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      className="number-input"
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  {!isReadOnly && entry.sets.length > 1 && (
+                    <button
+                      type="button"
+                      className="remove-set-btn"
+                      onClick={() => handleRemoveSet(index)}
+                      title="Remove set"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          </>
-        )}
-
-        {/* Show duration for non-strength when metric type is 'duration' */}
-        {section !== 'STRENGTH' && entry.metricType === 'duration' && (
+          </div>
+        ) : (
           <>
-            {/* Duration - Minutes */}
             <div className="input-group number-group">
               <label>Minutes</label>
               <input
@@ -423,8 +437,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
                 disabled={isReadOnly}
               />
             </div>
-
-            {/* Duration - Seconds */}
             <div className="input-group number-group">
               <label>Seconds</label>
               <input
@@ -438,42 +450,13 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
                 disabled={isReadOnly}
               />
             </div>
-
-            {/* Sets (optional for duration-based) */}
-            <div className="input-group number-group">
-              <label>Sets</label>
-              <input
-                type="number"
-                value={entry.sets ?? ''}
-                onChange={(e) => handleNumberChange('sets', e.target.value)}
-                placeholder="1"
-                min="1"
-                className="number-input"
-                disabled={isReadOnly}
-              />
-            </div>
           </>
         )}
-
-        {/* Rest time */}
-        <div className="input-group number-group">
-          <label>Rest (sec)</label>
-          <input
-            type="number"
-            value={entry.restSeconds ?? ''}
-            onChange={(e) => handleNumberChange('restSeconds', e.target.value)}
-            placeholder="0"
-            min="0"
-            className="number-input"
-            disabled={isReadOnly}
-          />
-        </div>
       </div>
 
       {/* Row 3: Action buttons */}
       <div className="exercise-row-actions">
         <div className="action-buttons">
-          {/* Save button - show when not saved or when editing */}
           {(!entry.isSaved || entry.isEditing) && (
             <button
               className={`save-button ${!canSave ? 'disabled' : ''}`}
@@ -486,7 +469,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
             </button>
           )}
 
-          {/* Edit button - show when saved and not editing */}
           {entry.isSaved && !entry.isEditing && (
             <button
               className="edit-button"
@@ -498,7 +480,6 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
             </button>
           )}
 
-          {/* Delete button */}
           <button
             className="delete-button"
             onClick={handleDeleteClick}

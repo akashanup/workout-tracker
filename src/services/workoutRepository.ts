@@ -12,7 +12,8 @@ import {
   SHEET_NAMES,
   SectionType,
   ExerciseType,
-  MetricType
+  MetricType,
+  ExerciseSet
 } from '../types/models';
 
 /**
@@ -154,7 +155,8 @@ export async function loadExercises(sheetId: string): Promise<Exercise[]> {
 }
 
 /**
- * Load workout entries for a specific date
+ * Load workout entries for a specific date (raw rows from sheet)
+ * Each row represents one SET of an exercise
  */
 export async function loadWorkoutEntriesForDate(
   sheetId: string,
@@ -163,7 +165,7 @@ export async function loadWorkoutEntriesForDate(
   try {
     const response = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:K`
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:L`
     });
 
     const rows = response.result.values || [];
@@ -179,10 +181,11 @@ export async function loadWorkoutEntriesForDate(
         exerciseId: row[4] || null,
         customExerciseName: row[5] || null,
         metricType: (row[6] || 'reps') as MetricType,
-        reps: row[7] ? parseInt(row[7], 10) : null,
-        sets: row[8] ? parseInt(row[8], 10) : null,
-        durationSeconds: row[9] ? parseInt(row[9], 10) : null,
-        restSeconds: row[10] ? parseInt(row[10], 10) : null
+        setNumber: row[7] ? parseInt(row[7], 10) : null,
+        reps: row[8] ? parseInt(row[8], 10) : null,
+        weightKg: row[9] ? parseFloat(row[9]) : null,
+        durationSeconds: row[10] ? parseInt(row[10], 10) : null,
+        restSeconds: row[11] ? parseInt(row[11], 10) : null
       }));
 
     return entries;
@@ -194,6 +197,7 @@ export async function loadWorkoutEntriesForDate(
 
 /**
  * Load complete workout data for a date with resolved references
+ * Groups individual set rows into exercise entries with sets array
  */
 export async function loadWorkoutForDate(
   sheetId: string,
@@ -213,12 +217,58 @@ export async function loadWorkoutForDate(
   const exerciseMap = new Map<string, string>();
   exercises.forEach(ex => exerciseMap.set(ex.id, ex.name));
 
-  // Enrich entries with resolved names
-  const enrichedEntries: WorkoutEntryUI[] = entries.map(entry => ({
-    ...entry,
-    bodyPartName: entry.bodyPartId ? bodyPartMap.get(entry.bodyPartId) : undefined,
-    exerciseName: entry.exerciseId ? exerciseMap.get(entry.exerciseId) : undefined
-  }));
+  // Group entries by exercise (using exerciseId or customExerciseName + section + bodyPartId as key)
+  const exerciseGroups = new Map<string, WorkoutEntry[]>();
+  
+  entries.forEach(entry => {
+    const key = `${entry.section}|${entry.bodyPartId || ''}|${entry.exerciseId || ''}|${entry.customExerciseName || ''}`;
+    const existing = exerciseGroups.get(key) || [];
+    existing.push(entry);
+    exerciseGroups.set(key, existing);
+  });
+
+  // Convert groups to WorkoutEntryUI with sets array
+  const enrichedEntries: WorkoutEntryUI[] = [];
+  
+  exerciseGroups.forEach((setEntries) => {
+    // Sort sets by setNumber
+    setEntries.sort((a, b) => (a.setNumber || 0) - (b.setNumber || 0));
+    
+    // Use first entry as the base
+    const firstEntry = setEntries[0];
+    
+    // Build sets array for reps-based exercises
+    const sets: ExerciseSet[] = setEntries
+      .filter(e => e.metricType === 'reps')
+      .map(e => ({
+        setNumber: e.setNumber || 1,
+        reps: e.reps,
+        weightKg: e.weightKg,
+        restSeconds: e.restSeconds
+      }));
+
+    // For duration-based, use the first entry's duration
+    const durationSeconds = firstEntry.metricType === 'duration' 
+      ? firstEntry.durationSeconds 
+      : null;
+
+    const uiEntry: WorkoutEntryUI = {
+      id: firstEntry.id, // Use first entry's ID as the exercise group ID
+      date: firstEntry.date,
+      section: firstEntry.section,
+      bodyPartId: firstEntry.bodyPartId,
+      bodyPartName: firstEntry.bodyPartId ? bodyPartMap.get(firstEntry.bodyPartId) : undefined,
+      exerciseId: firstEntry.exerciseId,
+      exerciseName: firstEntry.exerciseId ? exerciseMap.get(firstEntry.exerciseId) : undefined,
+      customExerciseName: firstEntry.customExerciseName,
+      metricType: firstEntry.metricType,
+      sets: sets.length > 0 ? sets : [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }],
+      durationSeconds,
+      isSaved: true
+    };
+
+    enrichedEntries.push(uiEntry);
+  });
 
   // Group entries by section
   const warmup = enrichedEntries.filter(e => e.section === 'WARMUP');
@@ -242,7 +292,7 @@ async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number
   try {
     const response = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:K`
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:L`
     });
 
     const rows = response.result.values || [];
@@ -257,10 +307,11 @@ async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number
         exerciseId: row[4] || null,
         customExerciseName: row[5] || null,
         metricType: (row[6] || 'reps') as MetricType,
-        reps: row[7] ? parseInt(row[7], 10) : null,
-        sets: row[8] ? parseInt(row[8], 10) : null,
-        durationSeconds: row[9] ? parseInt(row[9], 10) : null,
-        restSeconds: row[10] ? parseInt(row[10], 10) : null
+        setNumber: row[7] ? parseInt(row[7], 10) : null,
+        reps: row[8] ? parseInt(row[8], 10) : null,
+        weightKg: row[9] ? parseFloat(row[9]) : null,
+        durationSeconds: row[10] ? parseInt(row[10], 10) : null,
+        restSeconds: row[11] ? parseInt(row[11], 10) : null
       }
     }));
   } catch (error) {
@@ -272,6 +323,7 @@ async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number
 /**
  * Save workout data for a specific date
  * This clears existing entries for the date and writes new ones
+ * Each set is saved as a separate row
  */
 export async function saveWorkoutForDate(
   sheetId: string,
@@ -333,25 +385,51 @@ export async function saveWorkoutForDate(
     return; // Nothing to save
   }
 
-  // Prepare rows for insertion
-  const values = allNewEntries.map(entry => [
-    entry.id || generateId(),
-    date,
-    entry.section,
-    entry.bodyPartId || '',
-    entry.exerciseId || '',
-    entry.customExerciseName || '',
-    entry.metricType || 'reps',
-    entry.reps ?? '',
-    entry.sets ?? '',
-    entry.durationSeconds ?? '',
-    entry.restSeconds ?? ''
-  ]);
+  // Prepare rows for insertion - each set is a separate row
+  const values: (string | number)[][] = [];
+  
+  allNewEntries.forEach(entry => {
+    if (entry.metricType === 'duration') {
+      // For duration-based exercises, save one row
+      values.push([
+        entry.id || generateId(),
+        date,
+        entry.section,
+        entry.bodyPartId || '',
+        entry.exerciseId || '',
+        entry.customExerciseName || '',
+        entry.metricType,
+        1, // setNumber
+        '', // reps (not used for duration)
+        '', // weightKg (not used for duration)
+        entry.durationSeconds ?? '',
+        '' // restSeconds (not typically used for duration)
+      ]);
+    } else {
+      // For reps-based exercises, save each set as a separate row
+      entry.sets.forEach((set, index) => {
+        values.push([
+          index === 0 ? (entry.id || generateId()) : generateId(), // First set uses exercise ID
+          date,
+          entry.section,
+          entry.bodyPartId || '',
+          entry.exerciseId || '',
+          entry.customExerciseName || '',
+          entry.metricType,
+          set.setNumber || (index + 1),
+          set.reps ?? '',
+          set.weightKg ?? '',
+          '', // durationSeconds (not used for reps)
+          set.restSeconds ?? ''
+        ]);
+      });
+    }
+  });
 
   // Append new rows
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A:K`,
+    range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A:L`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     resource: { values }
@@ -400,10 +478,8 @@ export function createEmptyEntry(section: SectionType, date: string): WorkoutEnt
     bodyPartId: null,
     exerciseId: null,
     customExerciseName: null,
-    metricType: section === 'STRENGTH' ? 'reps' : 'reps', // Default to reps
-    reps: null,
-    sets: null,
-    durationSeconds: null,
-    restSeconds: null
+    metricType: 'reps', // Default to reps
+    sets: [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }],
+    durationSeconds: null
   };
 }

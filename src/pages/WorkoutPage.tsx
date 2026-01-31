@@ -200,6 +200,20 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ sheetId, onSignOut, userPictu
       throw new Error('Validation failed');
     }
 
+    // Validate metric data
+    if (entry.metricType === 'reps') {
+      const hasValidSet = entry.sets.some(s => s.reps && s.reps > 0);
+      if (!hasValidSet) {
+        setError('At least one set must have reps > 0');
+        throw new Error('Validation failed');
+      }
+    } else if (entry.metricType === 'duration') {
+      if (!entry.durationSeconds || entry.durationSeconds <= 0) {
+        setError('Duration must be greater than 0');
+        throw new Error('Validation failed');
+      }
+    }
+
     setError(null);
     setIsTokenExpired(false);
 

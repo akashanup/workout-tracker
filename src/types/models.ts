@@ -23,7 +23,16 @@ export type SectionType = 'WARMUP' | 'STRENGTH' | 'CARDIO' | 'CORE';
 // Metric type - whether exercise is measured in reps or duration
 export type MetricType = 'reps' | 'duration';
 
+// A single set within an exercise (for reps-based exercises)
+export interface ExerciseSet {
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+  restSeconds: number | null;
+}
+
 // Workout entry (row in the WorkoutEntries sheet)
+// For reps-based exercises, each row represents one SET
 export interface WorkoutEntry {
   id: string;
   date: string; // YYYY-MM-DD
@@ -33,17 +42,32 @@ export interface WorkoutEntry {
   customExerciseName: string | null;
   // Metric type: 'reps' for reps/sets, 'duration' for time-based
   metricType: MetricType;
+  // For reps-based exercises: each row is one set
+  setNumber: number | null;
   reps: number | null;
-  sets: number | null;
+  weightKg: number | null;
   // Duration in seconds (for time-based exercises)
   durationSeconds: number | null;
   restSeconds: number | null;
 }
 
 // UI-friendly workout entry with resolved references
-export interface WorkoutEntryUI extends WorkoutEntry {
+// For reps-based exercises, this represents one EXERCISE with multiple sets
+export interface WorkoutEntryUI {
+  // Unique ID for the exercise group (not individual sets)
+  id: string;
+  date: string;
+  section: SectionType;
+  bodyPartId: string | null;
   bodyPartName?: string;
+  exerciseId: string | null;
   exerciseName?: string;
+  customExerciseName: string | null;
+  metricType: MetricType;
+  // For reps-based: array of sets
+  sets: ExerciseSet[];
+  // For duration-based: single duration value
+  durationSeconds: number | null;
   // UI state: whether the entry has been saved to the sheet
   isSaved?: boolean;
   // UI state: whether the entry is in edit mode (only applies to saved entries)

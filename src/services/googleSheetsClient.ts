@@ -142,9 +142,9 @@ async function initializeHeaders(sheetId: string): Promise<void> {
       range: `${SHEET_NAMES.EXERCISES}!A1:E1`,
       values: [['id', 'bodyPartId', 'name', 'type', 'applicableSections']]
     },
-    // WorkoutEntries headers (includes metricType and durationSeconds)
+    // WorkoutEntries headers (includes setNumber and weightKg for per-set tracking)
     {
-      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A1:K1`,
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A1:L1`,
       values: [[
         'id',
         'date',
@@ -153,8 +153,9 @@ async function initializeHeaders(sheetId: string): Promise<void> {
         'exerciseId',
         'customExerciseName',
         'metricType',
+        'setNumber',
         'reps',
-        'sets',
+        'weightKg',
         'durationSeconds',
         'restSeconds'
       ]]

@@ -52,6 +52,11 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   3) Cardio section
   4) Core section
 
+- Each section is **expandable/collapsible**:
+  - Click on section header to toggle visibility
+  - Arrow icon indicates expanded/collapsed state
+  - Shows exercise count in header even when collapsed
+
 #### For each section
 
 - There can be multiple exercise rows.
@@ -95,6 +100,7 @@ I want the per-user spreadsheet to be normalized, with multiple tabs behaving li
    - applicableSections (string, comma-separated list of sections, e.g., "WARMUP,CARDIO" for exercises that can be used in multiple sections)
 
 3) Sheet: WorkoutEntries
+   Each row represents a single SET of an exercise:
    Columns:
 
    - id (string)
@@ -103,22 +109,29 @@ I want the per-user spreadsheet to be normalized, with multiple tabs behaving li
    - bodyPartId (string, nullable)
    - exerciseId (string, nullable)
    - customExerciseName (string, nullable)
-   - reps (number, nullable) - used when metricType is 'reps'
-   - sets (number, nullable) - used when metricType is 'reps'
-   - restSeconds (number, nullable)
-   - metricType (string: "reps" | "duration") - determines which input fields are shown
+   - metricType (string: "reps" | "duration")
+   - setNumber (number) - set number (1, 2, 3, etc.)
+   - reps (number, nullable) - reps for this specific set
+   - weightKg (number, nullable) - weight for this specific set
    - durationSeconds (number, nullable) - used when metricType is 'duration'
+   - restSeconds (number, nullable) - rest time after this set
 
 ### METRIC TYPES
 
 Exercises can be tracked using two different metric types:
 
 - **Reps-based** (`metricType: 'reps'`):
-  - Uses `reps` and `sets` fields
-  - Traditional rep/set counting for exercises like Push-ups, Squats, Dumbbell Curls
+  - Each SET is stored as a separate row with its own reps, weightKg, and restSeconds
+  - Allows different values per set (e.g., pyramid sets: 12 reps → 10 reps → 8 reps)
+  - Users can add/remove sets dynamically
   - Default for Strength section exercises
 
 - **Duration-based** (`metricType: 'duration'`):
+  - Uses `durationSeconds` field (stored as total seconds, displayed as minutes:seconds)
+  - Time-based tracking for exercises like Running, Planks, Cycling, Stretches
+  - Common for Warmup, Cardio, and Core sections
+
+The UI shows a toggle between "Reps" and "Time" modes for Warmup, Cardio, and Core sections. Strength section always uses reps mode.
   - Uses `durationSeconds` field (stored as total seconds, displayed as minutes:seconds)
   - Time-based tracking for exercises like Running, Planks, Cycling, Stretches
   - Common for Warmup, Cardio, and Core sections
