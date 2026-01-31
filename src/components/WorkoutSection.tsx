@@ -11,7 +11,10 @@ interface WorkoutSectionProps {
   bodyParts: BodyPart[];
   onAddEntry: () => void;
   onUpdateEntry: (index: number, entry: WorkoutEntryUI) => void;
-  onDeleteEntry: (index: number) => void;
+  onDeleteEntry: (index: number) => Promise<void>;
+  onSaveEntry: (index: number) => Promise<void>;
+  onAddExercise: (name: string) => Promise<Exercise | null>;
+  isSaving?: boolean;
 }
 
 // Section colors and icons
@@ -30,7 +33,10 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
   bodyParts,
   onAddEntry,
   onUpdateEntry,
-  onDeleteEntry
+  onDeleteEntry,
+  onSaveEntry,
+  onAddExercise,
+  isSaving = false
 }) => {
   const config = SECTION_CONFIG[section];
 
@@ -78,6 +84,9 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
                 section={section}
                 onUpdate={(updated) => onUpdateEntry(index, updated)}
                 onDelete={() => onDeleteEntry(index)}
+                onSave={() => onSaveEntry(index)}
+                onAddExercise={onAddExercise}
+                isSaving={isSaving}
               />
             ))}
             <button 

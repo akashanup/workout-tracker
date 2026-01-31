@@ -11,7 +11,8 @@ import {
   WorkoutDayData,
   SHEET_NAMES,
   SectionType,
-  ExerciseType
+  ExerciseType,
+  MetricType
 } from '../types/models';
 
 /**
@@ -134,7 +135,7 @@ export async function loadExercises(sheetId: string): Promise<Exercise[]> {
   try {
     const response = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAMES.EXERCISES}!A2:D`
+      range: `${SHEET_NAMES.EXERCISES}!A2:E`
     });
 
     const rows = response.result.values || [];
@@ -142,7 +143,9 @@ export async function loadExercises(sheetId: string): Promise<Exercise[]> {
       id: row[0] || '',
       bodyPartId: row[1] || null,
       name: row[2] || '',
-      type: (row[3] || 'strength') as ExerciseType
+      type: (row[3] || 'strength') as ExerciseType,
+      // Parse applicableSections from comma-separated string
+      applicableSections: row[4] ? row[4].split(',').filter((s: string) => s.trim()) as SectionType[] : undefined
     }));
   } catch (error) {
     console.error('Error loading exercises:', error);
@@ -160,7 +163,7 @@ export async function loadWorkoutEntriesForDate(
   try {
     const response = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:I`
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:K`
     });
 
     const rows = response.result.values || [];
@@ -175,9 +178,11 @@ export async function loadWorkoutEntriesForDate(
         bodyPartId: row[3] || null,
         exerciseId: row[4] || null,
         customExerciseName: row[5] || null,
-        reps: row[6] ? parseInt(row[6], 10) : null,
-        sets: row[7] ? parseInt(row[7], 10) : null,
-        restSeconds: row[8] ? parseInt(row[8], 10) : null
+        metricType: (row[6] || 'reps') as MetricType,
+        reps: row[7] ? parseInt(row[7], 10) : null,
+        sets: row[8] ? parseInt(row[8], 10) : null,
+        durationSeconds: row[9] ? parseInt(row[9], 10) : null,
+        restSeconds: row[10] ? parseInt(row[10], 10) : null
       }));
 
     return entries;
@@ -237,7 +242,7 @@ async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number
   try {
     const response = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:I`
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A2:K`
     });
 
     const rows = response.result.values || [];
@@ -251,9 +256,11 @@ async function getAllWorkoutEntries(sheetId: string): Promise<{ rowIndex: number
         bodyPartId: row[3] || null,
         exerciseId: row[4] || null,
         customExerciseName: row[5] || null,
-        reps: row[6] ? parseInt(row[6], 10) : null,
-        sets: row[7] ? parseInt(row[7], 10) : null,
-        restSeconds: row[8] ? parseInt(row[8], 10) : null
+        metricType: (row[6] || 'reps') as MetricType,
+        reps: row[7] ? parseInt(row[7], 10) : null,
+        sets: row[8] ? parseInt(row[8], 10) : null,
+        durationSeconds: row[9] ? parseInt(row[9], 10) : null,
+        restSeconds: row[10] ? parseInt(row[10], 10) : null
       }
     }));
   } catch (error) {
@@ -334,15 +341,17 @@ export async function saveWorkoutForDate(
     entry.bodyPartId || '',
     entry.exerciseId || '',
     entry.customExerciseName || '',
+    entry.metricType || 'reps',
     entry.reps ?? '',
     entry.sets ?? '',
+    entry.durationSeconds ?? '',
     entry.restSeconds ?? ''
   ]);
 
   // Append new rows
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A:I`,
+    range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A:K`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     resource: { values }
@@ -363,7 +372,7 @@ export async function addCustomExercise(
 
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: `${SHEET_NAMES.EXERCISES}!A:D`,
+    range: `${SHEET_NAMES.EXERCISES}!A:E`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     resource: {
@@ -371,7 +380,8 @@ export async function addCustomExercise(
         newExercise.id,
         newExercise.bodyPartId || '',
         newExercise.name,
-        newExercise.type
+        newExercise.type,
+        (newExercise.applicableSections || []).join(',')
       ]]
     }
   });
@@ -390,8 +400,10 @@ export function createEmptyEntry(section: SectionType, date: string): WorkoutEnt
     bodyPartId: null,
     exerciseId: null,
     customExerciseName: null,
+    metricType: section === 'STRENGTH' ? 'reps' : 'reps', // Default to reps
     reps: null,
     sets: null,
+    durationSeconds: null,
     restSeconds: null
   };
 }

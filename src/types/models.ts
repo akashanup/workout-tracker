@@ -10,13 +10,18 @@ export interface Exercise {
   bodyPartId: string | null;
   name: string;
   type: ExerciseType;
+  // Exercises can belong to multiple sections (e.g., running for warmup and cardio)
+  applicableSections?: SectionType[];
 }
 
-// Exercise types
-export type ExerciseType = 'warmup' | 'strength' | 'cardio' | 'core';
+// Exercise types - 'warmup' type is deprecated, use 'cardio' with applicableSections for warmup exercises
+export type ExerciseType = 'strength' | 'cardio' | 'core';
 
 // Section types for the workout
 export type SectionType = 'WARMUP' | 'STRENGTH' | 'CARDIO' | 'CORE';
+
+// Metric type - whether exercise is measured in reps or duration
+export type MetricType = 'reps' | 'duration';
 
 // Workout entry (row in the WorkoutEntries sheet)
 export interface WorkoutEntry {
@@ -26,8 +31,12 @@ export interface WorkoutEntry {
   bodyPartId: string | null;
   exerciseId: string | null;
   customExerciseName: string | null;
+  // Metric type: 'reps' for reps/sets, 'duration' for time-based
+  metricType: MetricType;
   reps: number | null;
   sets: number | null;
+  // Duration in seconds (for time-based exercises)
+  durationSeconds: number | null;
   restSeconds: number | null;
 }
 
@@ -35,6 +44,10 @@ export interface WorkoutEntry {
 export interface WorkoutEntryUI extends WorkoutEntry {
   bodyPartName?: string;
   exerciseName?: string;
+  // UI state: whether the entry has been saved to the sheet
+  isSaved?: boolean;
+  // UI state: whether the entry is in edit mode (only applies to saved entries)
+  isEditing?: boolean;
 }
 
 // Section data for UI
@@ -86,24 +99,29 @@ export const DEFAULT_BODY_PARTS: Omit<BodyPart, 'id'>[] = [
 ];
 
 // Default exercises for seeding
-export const DEFAULT_EXERCISES: Omit<Exercise, 'id'>[] = [
-  // Warmup exercises
-  { name: 'Jumping Jacks', bodyPartId: null, type: 'warmup' },
-  { name: 'Arm Circles', bodyPartId: null, type: 'warmup' },
-  { name: 'Leg Swings', bodyPartId: null, type: 'warmup' },
-  { name: 'Hip Circles', bodyPartId: null, type: 'warmup' },
-  { name: 'High Knees', bodyPartId: null, type: 'warmup' },
-  { name: 'Butt Kicks', bodyPartId: null, type: 'warmup' },
-  { name: 'Dynamic Stretching', bodyPartId: null, type: 'warmup' },
+// Warmup and Cardio exercises all use 'cardio' type with applicableSections to control visibility
+export const DEFAULT_EXERCISES: (Omit<Exercise, 'id'> & { applicableSections?: SectionType[] })[] = [
+  // Warmup-specific exercises (only show in warmup)
+  { name: 'Arm Circles', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP'] },
+  { name: 'Leg Swings', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP'] },
+  { name: 'Hip Circles', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP'] },
+  { name: 'Dynamic Stretching', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP'] },
   
-  // Cardio exercises
-  { name: 'Running', bodyPartId: null, type: 'cardio' },
-  { name: 'Cycling', bodyPartId: null, type: 'cardio' },
-  { name: 'Jump Rope', bodyPartId: null, type: 'cardio' },
-  { name: 'Burpees', bodyPartId: null, type: 'cardio' },
-  { name: 'Mountain Climbers', bodyPartId: null, type: 'cardio' },
-  { name: 'Rowing', bodyPartId: null, type: 'cardio' },
-  { name: 'Stair Climbing', bodyPartId: null, type: 'cardio' },
+  // Exercises that work for both warmup and cardio
+  { name: 'Jumping Jacks', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'High Knees', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Butt Kicks', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Running', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Cycling', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Cross Trainer', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Jump Rope', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Mountain Climbers', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO', 'CORE'] },
+  { name: 'Rowing', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  { name: 'Treadmill Walking', bodyPartId: null, type: 'cardio', applicableSections: ['WARMUP', 'CARDIO'] },
+  
+  // Cardio-only exercises
+  { name: 'Burpees', bodyPartId: null, type: 'cardio', applicableSections: ['CARDIO'] },
+  { name: 'Stair Climbing', bodyPartId: null, type: 'cardio', applicableSections: ['CARDIO'] },
   
   // Core exercises
   { name: 'Plank', bodyPartId: null, type: 'core' },

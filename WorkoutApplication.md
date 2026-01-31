@@ -18,8 +18,9 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
 - Tech stack: React + TypeScript + Vite.
 - Architecture: 100% frontend-only.
 - Data storage: Google Sheets API v4, with each user using their own spreadsheet.
-- Authentication: Google OAuth in the browser using Google Identity Services or gapi, with minimal scope:
-  - `https://www.googleapis.com/auth/drive.file` (only access files created by this app)
+- Authentication: Google OAuth in the browser using Google Identity Services or gapi, with scopes:
+  - `https://www.googleapis.com/auth/drive.file` (create and access files made by this app)
+  - `https://www.googleapis.com/auth/drive.metadata.readonly` (search for existing spreadsheets by name across sessions/devices)
 - Users: ~5–10 users, each with their own Google account and their own workout spreadsheet.
 - No central backend, no shared database, no shared server logic.
 
@@ -54,16 +55,23 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
 #### For each section
 
 - There can be multiple exercise rows.
-- An exercise row includes:
-  - Exercise type:
-    - A dropdown for common exercises.
-    - A free-text input for custom exercise name.
-  - Number of repetitions (integer).
-    - Number of sets (integer).
-  - Rest time after that exercise (number, e.g., seconds).
+- An exercise row is organized in **3 rows**:
+  - **Row 1**: Exercise name (autocomplete input) + Measure by toggle (for non-strength sections)
+  - **Row 2**: Metric inputs (Reps/Sets or Minutes/Seconds) + Rest time - all fields expand to fill the row
+  - **Row 3**: Action buttons (Save, Edit, Delete) aligned to the right
+- For non-strength sections (Warmup, Cardio, Core):
+  - **Metric type toggle** to switch between:
+    - **Reps mode**: Number of repetitions (integer) + Number of sets (integer)
+    - **Duration mode**: Duration input (minutes and seconds)
 - For the Strength section specifically:
+  - Row 1 shows: Body Part dropdown + Exercise name (both fill 50% of the row)
   - Multiple body parts per day should be supported.
   - Each exercise row must be associated with a body part (dropdown).
+  - Always uses reps/sets mode (no duration toggle).
+- **Multi-section exercises**:
+  - Some exercises (e.g., Running, Cycling, Cross Trainer) can be used in multiple sections.
+  - These exercises have an `applicableSections` array (e.g., `['WARMUP', 'CARDIO']`).
+  - The exercise dropdown filters options based on the current section and applicable sections.
 - Each section has an "Add exercise" button.
 - There is a "Save" button for the selected date that persists all section data into the user's spreadsheet.
 
@@ -83,7 +91,8 @@ I want the per-user spreadsheet to be normalized, with multiple tabs behaving li
    - id (string)
    - bodyPartId (string, FK → BodyParts.id, nullable for generic exercises)
    - name (string)
-   - type (string, e.g., "strength" | "warmup" | "cardio" | "core")
+   - type (string, e.g., "strength" | "cardio" | "core" - warmup exercises use 'cardio' type)
+   - applicableSections (string, comma-separated list of sections, e.g., "WARMUP,CARDIO" for exercises that can be used in multiple sections)
 
 3) Sheet: WorkoutEntries
    Columns:
@@ -94,11 +103,37 @@ I want the per-user spreadsheet to be normalized, with multiple tabs behaving li
    - bodyPartId (string, nullable)
    - exerciseId (string, nullable)
    - customExerciseName (string, nullable)
-   - reps (number, nullable)
-   - sets (number, nullable)
+   - reps (number, nullable) - used when metricType is 'reps'
+   - sets (number, nullable) - used when metricType is 'reps'
    - restSeconds (number, nullable)
+   - metricType (string: "reps" | "duration") - determines which input fields are shown
+   - durationSeconds (number, nullable) - used when metricType is 'duration'
 
-If you think additional sheets (e.g., Sections, Users, or configuration sheet) would be beneficial, propose them, but keep it MVP-friendly.
+### METRIC TYPES
+
+Exercises can be tracked using two different metric types:
+
+- **Reps-based** (`metricType: 'reps'`):
+  - Uses `reps` and `sets` fields
+  - Traditional rep/set counting for exercises like Push-ups, Squats, Dumbbell Curls
+  - Default for Strength section exercises
+
+- **Duration-based** (`metricType: 'duration'`):
+  - Uses `durationSeconds` field (stored as total seconds, displayed as minutes:seconds)
+  - Time-based tracking for exercises like Running, Planks, Cycling, Stretches
+  - Common for Warmup, Cardio, and Core sections
+
+The UI shows a toggle between "Reps" and "Time" modes for Warmup, Cardio, and Core sections. Strength section always uses reps/sets mode.
+
+### MULTI-SECTION EXERCISES
+
+All warmup and cardio exercises use the `cardio` type with `applicableSections` to control visibility:
+
+- **Warmup-only** (Arm Circles, Leg Swings) - `type: 'cardio', applicableSections: ['WARMUP']`
+- **Both warmup & cardio** (Running, Cycling, Jumping Jacks) - `type: 'cardio', applicableSections: ['WARMUP', 'CARDIO']`
+- **Cardio-only** (Burpees, Stair Climbing) - `type: 'cardio', applicableSections: ['CARDIO']`
+
+This unified approach simplifies the exercise type system while maintaining section-specific exercise filtering.
 
 ### EXPECTATIONS
 
@@ -152,6 +187,7 @@ Please walk me through the solution in structured sections with concrete TypeScr
 
    - Create a `googleSheetsClient.ts` module that:
      - Uses the access token from `googleAuth` to call the Google Sheets API v4 via `fetch`.
+     - **Implements a singleton lock pattern** to prevent race conditions when multiple calls to `getOrCreateWorkoutSpreadsheet()` happen simultaneously.
      - Exposes helper functions:
        - `getSpreadsheetName(): string`:
          - Returns `VITE_SHEET_NAME` from environment if set.
@@ -160,6 +196,8 @@ Please walk me through the solution in structured sections with concrete TypeScr
          - Uses Google Drive API to search for existing spreadsheet by name.
          - Returns spreadsheet ID if found, null otherwise.
        - `getOrCreateWorkoutSpreadsheet(): Promise<string>`:
+         - **Acquires a lock immediately** before any async operations to prevent concurrent creations.
+         - If a creation is already in progress, waits for the existing promise.
          - Check `localStorage` for `spreadsheetId`.
          - If found and still exists, return it.
          - If not found in localStorage, search for existing spreadsheet by name.
@@ -168,6 +206,7 @@ Please walk me through the solution in structured sections with concrete TypeScr
            - Call an `initWorkoutSpreadsheet(spreadsheetId)` function.
            - Store the `spreadsheetId` in localStorage.
            - Return the new id.
+         - **Releases the lock** when done (success or error).
        - `initWorkoutSpreadsheet(spreadsheetId: string): Promise<void>`:
          - Creates the tabs/sheets:
            - BodyParts
@@ -225,8 +264,9 @@ Please walk me through the solution in structured sections with concrete TypeScr
      - .env (gitignored, actual values)
    - Define TypeScript interfaces in `types/models.ts` such as:
      - `BodyPart`
-     - `Exercise`
-     - `WorkoutEntry`
+     - `Exercise` (includes `applicableSections?: SectionType[]` for multi-section exercises)
+     - `WorkoutEntry` (includes `metricType: MetricType` and `durationSeconds: number | null`)
+     - `MetricType` (type alias: `'reps' | 'duration'`)
      - `WorkoutDayData` (grouped by section: warmup, strength, cardio, core)
    - Provide example interface definitions.
 
@@ -265,10 +305,14 @@ Please walk me through the solution in structured sections with concrete TypeScr
      - Renders a list of `<ExerciseRow />` components and an "Add exercise" button.
    - Implement `<ExerciseRow />` that:
      - Shows:
-       - Exercise dropdown (options from Exercises sheet).
-       - Custom exercise text input.
+       - **Autocomplete exercise input** - Single input field that shows matching exercises as user types, with option to add new custom exercises.
+       - Suggestions filtered by section and `applicableSections`.
        - For Strength section: body-part dropdown (from BodyParts sheet).
-       - Numeric inputs: reps, sets, restSeconds.
+       - **Metric type toggle** (for non-Strength sections):
+         - "Reps" mode: shows reps and sets inputs.
+         - "Time" mode: shows duration inputs (minutes and seconds).
+       - For Strength section: always shows reps and sets inputs (no toggle).
+       - Numeric inputs: reps, sets, durationSeconds, restSeconds.
      - Calls `onChange(updatedRow)` when the user edits a field.
    - Use appropriate TypeScript interfaces for the row data and show complete component code examples.
 
@@ -340,11 +384,22 @@ Please walk me through the solution in structured sections with concrete TypeScr
 10) BASIC VALIDATION & ERROR HANDLING
 
     - Define validation rules such as:
-      - `reps` and `sets` must be positive integers when provided.
+      - When `metricType` is 'reps':
+        - Both `reps` AND `sets` must be > 0 (save button disabled until both are provided).
+      - When `metricType` is 'duration':
+        - `durationSeconds` must be > 0.
       - `restSeconds` must be >= 0.
-      - For each row, at least one of `exerciseId` (dropdown) or `customExerciseName` must be filled.
+      - For each row, an exercise name must be selected or entered.
+      - For strength exercises, a body part must be selected.
+    - **Per-exercise save validation**:
+      - Save button is disabled until exercise has complete data (name + metric data + body part if strength).
+      - Delete confirmation only shown when exercise has data entered.
+    - **Full-width responsive layout**:
+      - All input fields expand to fill available row width.
+      - Body Part and Exercise fields split the row 50/50 in Strength section.
+      - Reps, Sets, and Rest fields expand equally to fill the row.
     - Show how to:
-      - Validate each row on change or on Save.
+      - Validate each row on change.
       - Prevent Save if critical errors exist.
       - Display inline error states (e.g., red border, small error text) without overwhelming the user.
     - Explain how to handle errors from Google APIs:
@@ -355,21 +410,25 @@ Please walk me through the solution in structured sections with concrete TypeScr
 
     - **Vite Configuration for GitHub Pages**:
       - Configure `base` path in `vite.config.ts` using environment variable:
+
         ```typescript
         const REPO_NAME = process.env.VITE_REPO_NAME || 'WorkoutApp';
         const base = `/${REPO_NAME}/`;
         ```
+
       - Install `@types/node` as dev dependency for `process.env` TypeScript support.
     - **GitHub Actions Workflow** (`.github/workflows/deploy.yml`):
       - Trigger on push to `main` branch.
       - Use `actions/checkout@v4` and `actions/setup-node@v4` with Node.js 20.
       - Run `npm ci` for clean install.
       - Build with environment variables from GitHub Secrets:
+
         ```yaml
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_REPO_NAME: ${{ secrets.VITE_REPO_NAME }}
         ```
+
       - Deploy using `peaceiris/actions-gh-pages@v3` to `gh-pages` branch.
     - **GitHub Repository Configuration**:
       - Add repository secrets in Settings → Secrets and variables → Actions:

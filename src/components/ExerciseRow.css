@@ -4,20 +4,115 @@
   padding: 12px;
   margin-bottom: 12px;
   border: 1px solid #e5e7eb;
+  position: relative;
 }
 
+.exercise-row.read-only {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.exercise-row.saving {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Delete confirmation overlay */
+.delete-confirm-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.delete-confirm-dialog {
+  background: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.delete-confirm-dialog p {
+  margin: 0 0 16px 0;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.delete-confirm-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.confirm-delete-btn {
+  padding: 8px 16px;
+  border: none;
+  background: #ef4444;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.confirm-delete-btn:hover {
+  background: #dc2626;
+}
+
+.cancel-delete-btn {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-delete-btn:hover {
+  background: #f3f4f6;
+}
+
+/* Row 1: Exercise name and metric toggle */
 .exercise-row-main {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 12px;
+  align-items: flex-end;
 }
 
+/* Row 2: Metric inputs */
 .exercise-row-details {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+/* Row 3: Action buttons */
+.exercise-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* For non-strength sections, remove margin between rows since they're more compact */
+.exercise-row.non-strength .exercise-row-main {
+  margin-bottom: 10px;
+}
+
+.exercise-row.non-strength .exercise-row-details {
+  margin-bottom: 10px;
 }
 
 .input-group {
@@ -40,17 +135,94 @@
 }
 
 .exercise-group {
-  flex: 2;
-  min-width: 160px;
+  flex: 1;
+  min-width: 180px;
 }
 
-.custom-name-group {
+/* For strength section, make body part and exercise fill the entire row */
+.exercise-row:not(.non-strength) .exercise-row-main {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.exercise-row:not(.non-strength) .body-part-group {
   flex: 1;
-  min-width: 140px;
+  min-width: 0;
+}
+
+.exercise-row:not(.non-strength) .exercise-group {
+  flex: 1;
+  min-width: 0;
+}
+
+/* For non-strength sections, exercise takes more space */
+.exercise-row.non-strength .exercise-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Autocomplete styles */
+.exercise-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.exercise-autocomplete .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.exercise-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.15s;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: #f3f4f6;
+}
+
+.suggestion-item.selected {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.suggestion-item.add-new {
+  color: #4f46e5;
+  font-weight: 500;
+  background: #f5f3ff;
+}
+
+.suggestion-item.add-new:hover {
+  background: #e0e7ff;
 }
 
 .number-group {
-  flex: 0 0 80px;
+  flex: 1;
+  min-width: 70px;
 }
 
 .select-input,
@@ -63,6 +235,8 @@
   background: white;
   color: #1f2937;
   transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .select-input:focus,
@@ -109,23 +283,164 @@
   background: #fecaca;
 }
 
+/* Action buttons container */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Save button */
+.save-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 6px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #bbf7d0;
+}
+
+.save-button:active:not(:disabled) {
+  background: #86efac;
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Edit button */
+.edit-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #e0e7ff;
+  color: #4f46e5;
+  border-radius: 6px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.edit-button:hover {
+  background: #c7d2fe;
+}
+
+.edit-button:active {
+  background: #a5b4fc;
+}
+
+/* Metric type toggle */
+.metric-toggle-group {
+  flex: 0 0 auto;
+  min-width: 130px;
+}
+
+.metric-toggle {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  height: 42px;
+}
+
+.metric-btn {
+  padding: 8px 16px;
+  border: none;
+  background: white;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  flex: 1;
+}
+
+.metric-btn:first-child {
+  border-right: 1px solid #d1d5db;
+}
+
+.metric-btn.active {
+  background: #4f46e5;
+  color: white;
+}
+
+.metric-btn:hover:not(.active):not(:disabled) {
+  background: #f3f4f6;
+}
+
+.metric-btn:disabled {
+  cursor: not-allowed;
+}
+
 @media (max-width: 600px) {
   .exercise-row-main {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
   }
   
-  .body-part-group,
-  .exercise-group,
-  .custom-name-group {
-    min-width: 100%;
+  /* Exercise group takes most of the space, metric toggle is on the right */
+  .exercise-row.non-strength .exercise-group {
+    flex: 1;
+    min-width: 150px;
+  }
+  
+  .exercise-row.non-strength .metric-toggle-group {
+    flex: 0 0 auto;
+    min-width: 120px;
+  }
+  
+  /* Strength section: body part and exercise side by side on mobile too */
+  .exercise-row:not(.non-strength) .body-part-group {
+    flex: 1;
+    min-width: 120px;
+    max-width: none;
+  }
+  
+  .exercise-row:not(.non-strength) .exercise-group {
+    flex: 1;
+    min-width: 140px;
   }
   
   .exercise-row-details {
-    justify-content: space-between;
+    justify-content: flex-start;
   }
   
   .number-group {
     flex: 1;
     min-width: 70px;
+    max-width: 100px;
+  }
+
+  .metric-toggle {
+    width: 100%;
+  }
+}
+
+/* Very small screens - stack for strength section */
+@media (max-width: 400px) {
+  .exercise-row:not(.non-strength) .exercise-row-main {
+    flex-direction: column;
+  }
+  
+  .exercise-row:not(.non-strength) .body-part-group,
+  .exercise-row:not(.non-strength) .exercise-group {
+    min-width: 100%;
+    max-width: none;
   }
 }

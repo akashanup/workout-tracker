@@ -5,7 +5,6 @@
 
 import {
   BodyPart,
-  Exercise,
   SHEET_NAMES,
   DEFAULT_BODY_PARTS,
   DEFAULT_EXERCISES,
@@ -15,6 +14,9 @@ import { isSignedIn } from './googleAuth';
 
 // Storage key for sheet ID
 const SHEET_ID_KEY = 'workout_sheet_id';
+
+// Lock to prevent concurrent sheet creation
+let sheetCreationPromise: Promise<string> | null = null;
 
 /**
  * Get the spreadsheet name from env or use a fixed default
@@ -135,14 +137,14 @@ async function initializeHeaders(sheetId: string): Promise<void> {
       range: `${SHEET_NAMES.BODY_PARTS}!A1:B1`,
       values: [['id', 'name']]
     },
-    // Exercises headers
+    // Exercises headers (includes applicableSections)
     {
-      range: `${SHEET_NAMES.EXERCISES}!A1:D1`,
-      values: [['id', 'bodyPartId', 'name', 'type']]
+      range: `${SHEET_NAMES.EXERCISES}!A1:E1`,
+      values: [['id', 'bodyPartId', 'name', 'type', 'applicableSections']]
     },
-    // WorkoutEntries headers
+    // WorkoutEntries headers (includes metricType and durationSeconds)
     {
-      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A1:I1`,
+      range: `${SHEET_NAMES.WORKOUT_ENTRIES}!A1:K1`,
       values: [[
         'id',
         'date',
@@ -150,8 +152,10 @@ async function initializeHeaders(sheetId: string): Promise<void> {
         'bodyPartId',
         'exerciseId',
         'customExerciseName',
+        'metricType',
         'reps',
         'sets',
+        'durationSeconds',
         'restSeconds'
       ]]
     }
@@ -199,20 +203,22 @@ async function seedExercises(sheetId: string, bodyParts: BodyPart[]): Promise<vo
   const bodyPartMap = new Map<string, string>();
   bodyParts.forEach(bp => bodyPartMap.set(bp.name, bp.id));
 
-  // Generic exercises (warmup, cardio, core)
-  const genericExercises: Exercise[] = DEFAULT_EXERCISES.map(ex => ({
+  // Generic exercises (warmup, cardio, core) - now with applicableSections
+  const genericExercises = DEFAULT_EXERCISES.map(ex => ({
     id: generateId(),
     bodyPartId: ex.bodyPartId,
     name: ex.name,
-    type: ex.type
+    type: ex.type,
+    applicableSections: ex.applicableSections || []
   }));
 
   // Strength exercises with body part references
-  const strengthExercises: Exercise[] = DEFAULT_STRENGTH_EXERCISES.map(ex => ({
+  const strengthExercises = DEFAULT_STRENGTH_EXERCISES.map(ex => ({
     id: generateId(),
     bodyPartId: bodyPartMap.get(ex.bodyPartName) || null,
     name: ex.name,
-    type: 'strength'
+    type: 'strength' as const,
+    applicableSections: [] as string[]
   }));
 
   const allExercises = [...genericExercises, ...strengthExercises];
@@ -220,12 +226,14 @@ async function seedExercises(sheetId: string, bodyParts: BodyPart[]): Promise<vo
     ex.id,
     ex.bodyPartId || '',
     ex.name,
-    ex.type
+    ex.type,
+    // Store applicableSections as comma-separated string
+    ex.applicableSections.join(',')
   ]);
 
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: `${SHEET_NAMES.EXERCISES}!A:D`,
+    range: `${SHEET_NAMES.EXERCISES}!A:E`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     resource: { values }
@@ -249,49 +257,66 @@ export async function initWorkoutSheet(sheetId: string): Promise<void> {
 /**
  * Get or create the workout sheet
  * Returns the sheet ID
+ * Uses a lock to prevent multiple concurrent creations
  */
 export async function getOrCreateWorkoutSheet(): Promise<string> {
-  if (!isSignedIn()) {
-    throw new Error('User not signed in');
+  // If there's already a creation in progress, wait for it
+  if (sheetCreationPromise) {
+    console.log('Sheet creation already in progress, waiting...');
+    return sheetCreationPromise;
   }
 
-  const spreadsheetName = getSpreadsheetName();
-  console.log(`Looking for spreadsheet: ${spreadsheetName}`);
+  // Acquire lock IMMEDIATELY before any async operations
+  // This prevents race conditions when multiple calls happen simultaneously
+  sheetCreationPromise = (async () => {
+    try {
+      if (!isSignedIn()) {
+        throw new Error('User not signed in');
+      }
 
-  // Check for stored sheet ID
-  const storedId = getStoredSheetId();
-  
-  if (storedId) {
-    // Verify the sheet still exists
-    const exists = await checkSpreadsheetExists(storedId);
-    if (exists) {
-      console.log(`Using stored spreadsheet ID: ${storedId}`);
-      return storedId;
+      // Check for stored ID first
+      const storedId = getStoredSheetId();
+      if (storedId) {
+        // Verify the sheet still exists
+        const exists = await checkSpreadsheetExists(storedId);
+        if (exists) {
+          console.log(`Using stored spreadsheet ID: ${storedId}`);
+          return storedId;
+        }
+        // Sheet was deleted, clear stored ID
+        console.log('Stored spreadsheet no longer exists, clearing...');
+        clearStoredSheetId();
+      }
+
+      const spreadsheetName = getSpreadsheetName();
+      console.log(`Looking for spreadsheet: ${spreadsheetName}`);
+
+      // Search for existing spreadsheet by name
+      const existingSheetId = await findSpreadsheetByName(spreadsheetName);
+      if (existingSheetId) {
+        console.log(`Found existing spreadsheet: ${existingSheetId}`);
+        storeSheetId(existingSheetId);
+        return existingSheetId;
+      }
+
+      // Create new spreadsheet
+      console.log(`Creating new spreadsheet: ${spreadsheetName}`);
+      const newSheetId = await createSpreadsheet(spreadsheetName);
+      
+      // Initialize with schema and seed data
+      await initWorkoutSheet(newSheetId);
+      
+      // Store the sheet ID
+      storeSheetId(newSheetId);
+
+      return newSheetId;
+    } finally {
+      // Clear the lock when done (success or error)
+      sheetCreationPromise = null;
     }
-    // Sheet was deleted, clear stored ID
-    console.log('Stored spreadsheet no longer exists, clearing...');
-    clearStoredSheetId();
-  }
+  })();
 
-  // Search for existing spreadsheet by name
-  const existingSheetId = await findSpreadsheetByName(spreadsheetName);
-  if (existingSheetId) {
-    console.log(`Found existing spreadsheet: ${existingSheetId}`);
-    storeSheetId(existingSheetId);
-    return existingSheetId;
-  }
-
-  // Create new spreadsheet
-  console.log(`Creating new spreadsheet: ${spreadsheetName}`);
-  const newSheetId = await createSpreadsheet(spreadsheetName);
-  
-  // Initialize with schema and seed data
-  await initWorkoutSheet(newSheetId);
-  
-  // Store the sheet ID
-  storeSheetId(newSheetId);
-
-  return newSheetId;
+  return sheetCreationPromise;
 }
 
 /**

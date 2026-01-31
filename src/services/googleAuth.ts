@@ -8,9 +8,10 @@ import { AuthState } from '../types/models';
 // Configuration from environment variables
 // Set VITE_GOOGLE_CLIENT_ID in your .env file
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
-// Using drive.file scope - only allows access to files created/opened by this app
-// This is more privacy-friendly than full spreadsheets access
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+// Scopes:
+// - drive.file: Create and access files created by this app
+// - drive.metadata.readonly: Search for existing spreadsheets by name (needed to find sheets across sessions)
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly';
 
 // Validate that Client ID is configured
 if (!CLIENT_ID || CLIENT_ID === 'your-client-id.apps.googleusercontent.com') {

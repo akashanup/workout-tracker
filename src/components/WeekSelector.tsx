@@ -74,7 +74,15 @@ function isToday(date: Date): boolean {
 }
 
 const WeekSelector: React.FC<WeekSelectorProps> = ({ selectedDate, onDateChange }) => {
-  const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
+  // Get current week days based on selected date
+  const currentWeekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
+  
+  // Get last week days (7 days before the current week start)
+  const lastWeekDays = useMemo(() => {
+    const lastWeekStart = new Date(currentWeekDays[0]);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    return getWeekDays(lastWeekStart);
+  }, [currentWeekDays]);
 
   const goToPreviousWeek = () => {
     const newDate = new Date(selectedDate);
@@ -92,38 +100,30 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({ selectedDate, onDateChange 
     onDateChange(new Date());
   };
 
-  const monthYear = selectedDate.toLocaleDateString('en-US', {
+  // Format week range for display
+  const formatWeekRange = (days: Date[]) => {
+    const start = days[0];
+    const end = days[6];
+    const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+    
+    if (startMonth === endMonth) {
+      return `${startMonth} ${start.getDate()}-${end.getDate()}`;
+    }
+    return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}`;
+  };
+
+  const currentMonthYear = selectedDate.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric'
   });
 
-  return (
-    <div className="week-selector">
-      <div className="week-selector-header">
-        <button 
-          className="week-nav-button" 
-          onClick={goToPreviousWeek}
-          aria-label="Previous week"
-        >
-          ‹
-        </button>
-        <div className="week-title">
-          <span className="month-year">{monthYear}</span>
-          <button className="today-button" onClick={goToToday}>
-            Today
-          </button>
-        </div>
-        <button 
-          className="week-nav-button" 
-          onClick={goToNextWeek}
-          aria-label="Next week"
-        >
-          ›
-        </button>
-      </div>
-      
+  // Render a week row
+  const renderWeekRow = (days: Date[], label: string) => (
+    <div className="week-row">
+      <span className="week-label">{label}</span>
       <div className="week-days">
-        {weekDays.map((day) => {
+        {days.map((day) => {
           const selected = isSameDay(day, selectedDate);
           const today = isToday(day);
           
@@ -145,6 +145,39 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({ selectedDate, onDateChange 
           );
         })}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="week-selector">
+      <div className="week-selector-header">
+        <button 
+          className="week-nav-button" 
+          onClick={goToPreviousWeek}
+          aria-label="Previous week"
+        >
+          ‹
+        </button>
+        <div className="week-title">
+          <span className="month-year">{currentMonthYear}</span>
+          <button className="today-button" onClick={goToToday}>
+            Today
+          </button>
+        </div>
+        <button 
+          className="week-nav-button" 
+          onClick={goToNextWeek}
+          aria-label="Next week"
+        >
+          ›
+        </button>
+      </div>
+      
+      {/* Last week row */}
+      {renderWeekRow(lastWeekDays, formatWeekRange(lastWeekDays))}
+      
+      {/* Current week row */}
+      {renderWeekRow(currentWeekDays, formatWeekRange(currentWeekDays))}
     </div>
   );
 };
