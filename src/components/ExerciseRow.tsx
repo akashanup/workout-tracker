@@ -30,7 +30,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   const [exerciseInput, setExerciseInput] = useState(entry.exerciseName || entry.customExerciseName || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(entry.isSaved || false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -299,7 +299,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
         <>
           {/* Row 1: Exercise name (+ Body Part for Strength, + Metric toggle for others) */}
           <div className="exercise-row-main">
-            {section === 'STRENGTH' && (
+            {section === 'STRENGTH' && !entry.isSaved && (
               <div className="input-group body-part-group">
                 <label>Body Part</label>
                 <select
@@ -415,18 +415,33 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
                         </div>
                       </>
                     ) : (
-                      <div className="input-group number-group duration-input">
-                        <label>Duration (sec)</label>
-                        <input
-                          type="number"
-                          value={set.reps ?? ''}
-                          onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          className="number-input"
-                          disabled={isReadOnly}
-                        />
-                      </div>
+                      <>
+                        <div className="input-group number-group">
+                          <label>Weight (kg)</label>
+                          <input
+                            type="number"
+                            value={set.weightKg ?? ''}
+                            onChange={(e) => handleSetChange(index, 'weightKg', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            step="0.5"
+                            className="number-input"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                        <div className="input-group number-group duration-input">
+                          <label>Duration (sec)</label>
+                          <input
+                            type="number"
+                            value={set.reps ?? ''}
+                            onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            className="number-input"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                      </>
                     )}
                     <div className="input-group number-group">
                       <label>Rest (sec)</label>

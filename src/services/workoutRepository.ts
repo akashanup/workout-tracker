@@ -249,7 +249,7 @@ export async function loadWorkoutForDate(
       sets = setEntries.map(e => ({
         setNumber: e.setNumber || 1,
         reps: e.durationSeconds, // Duration in seconds stored in reps field for UI
-        weightKg: null,
+        weightKg: e.weightKg,
         restSeconds: e.restSeconds
       }));
     } else {
@@ -413,7 +413,7 @@ export async function saveWorkoutForDate(
           entry.metricType,
           set.setNumber || (index + 1),
           '', // reps (not used for duration display)
-          '', // weightKg (not used for duration)
+          set.weightKg ?? '', // weight is now supported for duration
           set.reps ?? '', // duration in seconds stored in reps field
           set.restSeconds ?? ''
         ]);

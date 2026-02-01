@@ -45,10 +45,10 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
   onSaveEntry,
   onAddExercise,
   isSaving = false,
-  defaultExpanded = true
+  defaultExpanded = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [expandedBodyParts, setExpandedBodyParts] = useState<Set<string>>(new Set(['all']));
+  const [expandedBodyParts, setExpandedBodyParts] = useState<Set<string>>(new Set());
   const config = SECTION_CONFIG[section];
 
   // Group entries by body part for strength section
