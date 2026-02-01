@@ -11,12 +11,14 @@ A Progressive Web App (PWA) for tracking workouts using Google Sheets as the dat
 - 🔒 **Minimal permissions** - Only accesses spreadsheets created by this app, not your other files
 - 👤 **User profile display** - Shows your Google profile picture and name
 - 📅 **Week-based navigation** - Easy date selection with weekly view
-- 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core (expandable/collapsible)
+- 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core (collapsed by default)
 - 💪 **Body part grouping** - Strength exercises are grouped by body part with collapsible subsections
 - ⏱️ **Flexible exercise tracking** - Track exercises by reps/sets OR duration (both support multiple sets)
+- ⏰ **Minutes + Seconds input** - Duration exercises use separate minute/second fields for easy entry
 - 🎯 **Per-set tracking** - Each set records its own reps, weight (kg), and rest time independently
 - 📋 **Copy & delete sets** - Easily duplicate or remove individual sets
 - 🔄 **Collapsible exercises** - Saved exercises collapse to show name and set count, expand to edit
+- ↩️ **Cancel changes** - Revert edits to saved exercises with cancel button
 - 🔄 **Multi-section exercises** - Some exercises (e.g., Running, Cycling) can be used in both Warmup and Cardio
 - 🔍 **Autocomplete exercise input** - Single input field with deduplicated suggestions as you type
 - ✏️ **Per-exercise save/edit/delete** - Individual controls for each exercise row

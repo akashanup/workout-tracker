@@ -30,7 +30,8 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   const [exerciseInput, setExerciseInput] = useState(entry.exerciseName || entry.customExerciseName || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(entry.isSaved || false);
+  const [originalEntry, setOriginalEntry] = useState<WorkoutEntryUI | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +93,22 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
 
   // Handle edit button click
   const handleEdit = () => {
+    // Store original state for cancel functionality
+    setOriginalEntry(JSON.parse(JSON.stringify(entry)));
     onUpdate({ ...entry, isEditing: true });
+  };
+
+  // Handle cancel button click - revert to original state
+  const handleCancel = () => {
+    if (originalEntry) {
+      setExerciseInput(originalEntry.exerciseName || originalEntry.customExerciseName || '');
+      onUpdate({ ...originalEntry, isEditing: false });
+      setOriginalEntry(null);
+      setIsCollapsed(true);
+    } else if (!entry.isSaved) {
+      // For new unsaved entries, just delete
+      onDelete();
+    }
   };
 
   // Handle delete with confirmation
@@ -299,7 +315,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
         <>
           {/* Row 1: Exercise name (+ Body Part for Strength, + Metric toggle for others) */}
           <div className="exercise-row-main">
-            {section === 'STRENGTH' && !entry.isSaved && (
+            {section === 'STRENGTH' && (!entry.isSaved || entry.isEditing) && (
               <div className="input-group body-part-group">
                 <label>Body Part</label>
                 <select
@@ -316,40 +332,42 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
               </div>
             )}
 
-            <div className="input-group exercise-group">
-              <label>Exercise</label>
-              <div className="exercise-autocomplete">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={exerciseInput}
-                  onChange={handleExerciseInputChange}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder="Type to search or add..."
-                  className="text-input"
-                  disabled={isReadOnly}
-                />
-                {showSuggestions && !isReadOnly && (
-                  <div ref={suggestionsRef} className="exercise-suggestions">
-                    {filteredSuggestions.length > 0 ? (
-                      filteredSuggestions.slice(0, 8).map(ex => (
-                        <div
-                          key={ex.id}
-                          className={`suggestion-item ${entry.exerciseId === ex.id ? 'selected' : ''}`}
-                          onClick={() => handleSelectExercise(ex)}
-                        >
-                          {ex.name}
+            {(!entry.isSaved || entry.isEditing) && (
+              <div className="input-group exercise-group">
+                <label>Exercise</label>
+                <div className="exercise-autocomplete">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={exerciseInput}
+                    onChange={handleExerciseInputChange}
+                    onFocus={() => setShowSuggestions(true)}
+                    placeholder="Type to search or add..."
+                    className="text-input"
+                    disabled={isReadOnly}
+                  />
+                  {showSuggestions && !isReadOnly && (
+                    <div ref={suggestionsRef} className="exercise-suggestions">
+                      {filteredSuggestions.length > 0 ? (
+                        filteredSuggestions.slice(0, 8).map(ex => (
+                          <div
+                            key={ex.id}
+                            className={`suggestion-item ${entry.exerciseId === ex.id ? 'selected' : ''}`}
+                            onClick={() => handleSelectExercise(ex)}
+                          >
+                            {ex.name}
+                          </div>
+                        ))
+                      ) : exerciseInput.trim() ? (
+                        <div className="suggestion-item add-new" onClick={handleAddNewExercise}>
+                          + Add "{exerciseInput.trim()}" as new exercise
                         </div>
-                      ))
-                    ) : exerciseInput.trim() ? (
-                      <div className="suggestion-item add-new" onClick={handleAddNewExercise}>
-                        + Add "{exerciseInput.trim()}" as new exercise
-                      </div>
-                    ) : null}
-                  </div>
-                )}
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {showMetricToggle && (
               <div className="input-group metric-toggle-group">
@@ -430,13 +448,36 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
                           />
                         </div>
                         <div className="input-group number-group duration-input">
-                          <label>Duration (sec)</label>
+                          <label>Min</label>
                           <input
                             type="number"
-                            value={set.reps ?? ''}
-                            onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
+                            value={set.reps ? Math.floor(set.reps / 60) : ''}
+                            onChange={(e) => {
+                              const mins = parseInt(e.target.value, 10) || 0;
+                              const currentSecs = (set.reps || 0) % 60;
+                              const totalSeconds = (mins * 60) + currentSecs;
+                              handleSetChange(index, 'reps', totalSeconds.toString());
+                            }}
                             placeholder="0"
                             min="0"
+                            className="number-input"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                        <div className="input-group number-group duration-input">
+                          <label>Sec</label>
+                          <input
+                            type="number"
+                            value={set.reps ? set.reps % 60 : ''}
+                            onChange={(e) => {
+                              const secs = parseInt(e.target.value, 10) || 0;
+                              const currentMins = Math.floor((set.reps || 0) / 60);
+                              const totalSeconds = (currentMins * 60) + secs;
+                              handleSetChange(index, 'reps', totalSeconds.toString());
+                            }}
+                            placeholder="0"
+                            min="0"
+                            max="59"
                             className="number-input"
                             disabled={isReadOnly}
                           />
@@ -471,7 +512,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
                           onClick={() => handleRemoveSet(index)}
                           title={entry.sets.length === 1 ? "Clear set" : "Remove set"}
                         >
-                          ×
+                          🗑
                         </button>
                       </div>
                     )}
@@ -485,7 +526,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
 
       {/* Row 3: Action buttons */}
       <div className="exercise-row-actions">
-        <div className="action-buttons">
+        <div className="action-buttons-left">
           {!isReadOnly && (
             <button 
               type="button" 
@@ -493,10 +534,11 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
               onClick={handleAddSet}
               title="Add set"
             >
-              + Set
+              Add Set
             </button>
           )}
-
+        </div>
+        <div className="action-buttons">
           {(!entry.isSaved || entry.isEditing) && (
             <button
               className={`save-button ${!canSave ? 'disabled' : ''}`}
@@ -506,6 +548,18 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
               title={canSave ? "Save exercise" : "Complete all required fields to save"}
             >
               {isCurrentlySaving ? '...' : '✓'}
+            </button>
+          )}
+
+          {(!entry.isSaved || entry.isEditing) && (
+            <button
+              className="cancel-button"
+              onClick={handleCancel}
+              disabled={isCurrentlySaving}
+              aria-label="Cancel changes"
+              title="Cancel changes"
+            >
+              ✕
             </button>
           )}
 
@@ -526,7 +580,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
             aria-label="Delete exercise"
             title="Remove exercise"
           >
-            ×
+            🗑
           </button>
         </div>
       </div>

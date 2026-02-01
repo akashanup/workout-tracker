@@ -53,6 +53,7 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   4) Core section
 
 - Each section is **expandable/collapsible**:
+  - **Collapsed by default** - Sections start collapsed to reduce visual clutter
   - Click on section header to toggle visibility
   - Arrow icon indicates expanded/collapsed state
   - Shows exercise count in header even when collapsed
@@ -61,17 +62,21 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
 
 - There can be multiple exercise rows.
 - Each exercise row is **collapsible** when saved:
-  - **Collapsed state**: Shows exercise name and set count badge, click to expand
-  - **Expanded state**: Shows all inputs and action buttons
+  - **Collapsed by default** for saved exercises - Shows exercise name and set count badge
+  - **Expanded by default** for new exercises - Shows all inputs for data entry
+  - Click on header to expand/collapse
 - An exercise row is organized in **3 rows** (when expanded):
   - **Row 1**: Exercise name (autocomplete input) + Measure by toggle (for non-strength sections)
+    - Body part and exercise name fields are hidden for saved exercises (already visible in header)
+    - Fields reappear when entering edit mode
   - **Row 2**: Sets container - each set shows Weight (kg), Reps/Duration, Rest time + Copy/Delete buttons
-  - **Row 3**: Action buttons (+ Set, Save/Edit, Delete) aligned to the right
+  - **Row 3**: Action buttons - Add Set (left), Save/Cancel/Edit/Delete (right)
 - For non-strength sections (Warmup, Cardio, Core):
   - **Metric type toggle** to switch between:
     - **Reps mode**: Weight (kg) + Reps + Rest time per set
-    - **Duration mode**: Duration (seconds) + Rest time per set
+    - **Duration mode**: Weight (kg) + Minutes + Seconds + Rest time per set
   - Both modes support multiple sets
+  - Duration is entered as Minutes + Seconds (stored as total seconds in backend)
 - For the Strength section specifically:
   - Exercises are **grouped by body part** with collapsible subsections
   - Row 1 shows: Body Part dropdown + Exercise name (both fill 50% of the row)
@@ -79,8 +84,13 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   - Always uses reps mode (Weight → Reps → Rest)
 - **Set management**:
   - Copy button (⧉) duplicates a set with all its values
-  - Delete button (×) removes a set (or clears values if last set)
-  - + Set button in action row adds new empty set
+  - Delete button (🗑) removes a set (or clears values if last set)
+  - Add Set button (left-aligned) adds new empty set
+- **Action buttons**:
+  - Save (✓) - Saves the exercise to the sheet
+  - Cancel (✕) - Reverts changes to original state (for edits) or deletes (for new)
+  - Edit (✎) - Enters edit mode for saved exercises
+  - Delete (🗑) - Removes the exercise entirely
 - **Multi-section exercises**:
   - Some exercises (e.g., Running, Cycling, Cross Trainer) can be used in multiple sections.
   - These exercises have an `applicableSections` array (e.g., `['WARMUP', 'CARDIO']`).
