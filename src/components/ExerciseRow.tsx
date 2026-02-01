@@ -30,6 +30,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   const [exerciseInput, setExerciseInput] = useState(entry.exerciseName || entry.customExerciseName || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(entry.isSaved || false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -69,10 +70,14 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   // Check if entry has all required data for saving
   const hasExerciseName = !!(entry.exerciseId || entry.customExerciseName);
   const hasMetricData = entry.metricType === 'duration' 
-    ? !!(entry.durationSeconds && entry.durationSeconds > 0)
+    ? entry.sets.some(s => s.reps && s.reps > 0) // For duration, reps field stores duration per set
     : entry.sets.some(s => s.reps && s.reps > 0); // At least one set with reps
   const hasRequiredBodyPart = section !== 'STRENGTH' || !!entry.bodyPartId;
   const canSave = hasExerciseName && hasMetricData && hasRequiredBodyPart;
+
+  // Get display name for exercise
+  const displayName = entry.exerciseName || entry.customExerciseName || 'New Exercise';
+  const setCount = entry.sets.length;
 
   // Handle save button click
   const handleSave = async () => {
@@ -133,11 +138,16 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     ? filteredExercises.filter(ex => ex.bodyPartId === entry.bodyPartId || !ex.bodyPartId)
     : filteredExercises;
 
+  // Deduplicate exercises by name
+  const uniqueExercises = Array.from(
+    new Map(availableExercises.map(ex => [ex.name.toLowerCase(), ex])).values()
+  );
+
   const filteredSuggestions = exerciseInput.trim()
-    ? availableExercises.filter(ex => 
+    ? uniqueExercises.filter(ex => 
         ex.name.toLowerCase().includes(exerciseInput.toLowerCase())
       )
-    : availableExercises;
+    : uniqueExercises;
 
   const handleExerciseInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -207,7 +217,8 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     onUpdate({
       ...entry,
       metricType,
-      sets: metricType === 'duration' ? [] : (entry.sets.length > 0 ? entry.sets : [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }]),
+      // Keep sets for all metric types to support sets with duration
+      sets: entry.sets.length > 0 ? entry.sets : [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }],
       durationSeconds: metricType === 'reps' ? null : entry.durationSeconds
     });
   };
@@ -232,27 +243,22 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
 
   // Remove a set
   const handleRemoveSet = (setIndex: number) => {
-    if (entry.sets.length <= 1) return; // Keep at least one set
+    if (entry.sets.length <= 1) {
+      // If only one set, clear its values instead of removing
+      const clearedSets = [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }];
+      onUpdate({ ...entry, sets: clearedSets });
+      return;
+    }
     const newSets = entry.sets.filter((_, i) => i !== setIndex).map((s, i) => ({ ...s, setNumber: i + 1 }));
     onUpdate({ ...entry, sets: newSets });
   };
 
-  // Duration handlers
-  const durationMinutes = entry.durationSeconds ? Math.floor(entry.durationSeconds / 60) : null;
-  const durationRemainingSeconds = entry.durationSeconds ? entry.durationSeconds % 60 : null;
-
-  const handleDurationMinutesChange = (minutes: string) => {
-    const mins = minutes === '' ? 0 : parseInt(minutes, 10);
-    const secs = durationRemainingSeconds || 0;
-    const totalSeconds = (isNaN(mins) ? 0 : mins) * 60 + secs;
-    onUpdate({ ...entry, durationSeconds: totalSeconds > 0 ? totalSeconds : null });
-  };
-
-  const handleDurationSecondsChange = (seconds: string) => {
-    const secs = seconds === '' ? 0 : parseInt(seconds, 10);
-    const mins = durationMinutes || 0;
-    const totalSeconds = mins * 60 + (isNaN(secs) ? 0 : secs);
-    onUpdate({ ...entry, durationSeconds: totalSeconds > 0 ? totalSeconds : null });
+  // Copy a set
+  const handleCopySet = (setIndex: number) => {
+    const setToCopy = entry.sets[setIndex];
+    const newSetNumber = entry.sets.length + 1;
+    const newSets = [...entry.sets, { ...setToCopy, setNumber: newSetNumber }];
+    onUpdate({ ...entry, sets: newSets });
   };
   
   const showMetricToggle = section !== 'STRENGTH';
@@ -272,191 +278,210 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
         </div>
       )}
 
-      {/* Row 1: Exercise name (+ Body Part for Strength, + Metric toggle for others) */}
-      <div className="exercise-row-main">
-        {section === 'STRENGTH' && (
-          <div className="input-group body-part-group">
-            <label>Body Part</label>
-            <select
-              value={entry.bodyPartId || ''}
-              onChange={handleBodyPartChange}
-              className="select-input"
-              disabled={isReadOnly}
-            >
-              <option value="">Select body part...</option>
-              {bodyParts.map(bp => (
-                <option key={bp.id} value={bp.id}>{bp.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+      {/* Collapsible Header */}
+      <div 
+        className="exercise-header" 
+        onClick={() => entry.isSaved && setIsCollapsed(!isCollapsed)}
+      >
+        <div className="exercise-header-info">
+          {entry.isSaved && (
+            <span className={`collapse-icon ${isCollapsed ? '' : 'expanded'}`}>›</span>
+          )}
+          <span className="exercise-display-name">{displayName}</span>
+          {isCollapsed && (
+            <span className="set-count-badge">{setCount} {setCount === 1 ? 'set' : 'sets'}</span>
+          )}
+        </div>
+      </div>
 
-        <div className="input-group exercise-group">
-          <label>Exercise</label>
-          <div className="exercise-autocomplete">
-            <input
-              ref={inputRef}
-              type="text"
-              value={exerciseInput}
-              onChange={handleExerciseInputChange}
-              onFocus={() => setShowSuggestions(true)}
-              placeholder="Type to search or add..."
-              className="text-input"
-              disabled={isReadOnly}
-            />
-            {showSuggestions && !isReadOnly && (
-              <div ref={suggestionsRef} className="exercise-suggestions">
-                {filteredSuggestions.length > 0 ? (
-                  filteredSuggestions.slice(0, 8).map(ex => (
-                    <div
-                      key={ex.id}
-                      className={`suggestion-item ${entry.exerciseId === ex.id ? 'selected' : ''}`}
-                      onClick={() => handleSelectExercise(ex)}
-                    >
-                      {ex.name}
-                    </div>
-                  ))
-                ) : exerciseInput.trim() ? (
-                  <div className="suggestion-item add-new" onClick={handleAddNewExercise}>
-                    + Add "{exerciseInput.trim()}" as new exercise
+      {/* Expanded Content */}
+      {!isCollapsed && (
+        <>
+          {/* Row 1: Exercise name (+ Body Part for Strength, + Metric toggle for others) */}
+          <div className="exercise-row-main">
+            {section === 'STRENGTH' && (
+              <div className="input-group body-part-group">
+                <label>Body Part</label>
+                <select
+                  value={entry.bodyPartId || ''}
+                  onChange={handleBodyPartChange}
+                  className="select-input"
+                  disabled={isReadOnly}
+                >
+                  <option value="">Select body part...</option>
+                  {bodyParts.map(bp => (
+                    <option key={bp.id} value={bp.id}>{bp.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="input-group exercise-group">
+              <label>Exercise</label>
+              <div className="exercise-autocomplete">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={exerciseInput}
+                  onChange={handleExerciseInputChange}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="Type to search or add..."
+                  className="text-input"
+                  disabled={isReadOnly}
+                />
+                {showSuggestions && !isReadOnly && (
+                  <div ref={suggestionsRef} className="exercise-suggestions">
+                    {filteredSuggestions.length > 0 ? (
+                      filteredSuggestions.slice(0, 8).map(ex => (
+                        <div
+                          key={ex.id}
+                          className={`suggestion-item ${entry.exerciseId === ex.id ? 'selected' : ''}`}
+                          onClick={() => handleSelectExercise(ex)}
+                        >
+                          {ex.name}
+                        </div>
+                      ))
+                    ) : exerciseInput.trim() ? (
+                      <div className="suggestion-item add-new" onClick={handleAddNewExercise}>
+                        + Add "{exerciseInput.trim()}" as new exercise
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                )}
+              </div>
+            </div>
+
+            {showMetricToggle && (
+              <div className="input-group metric-toggle-group">
+                <label>Measure by</label>
+                <div className="metric-toggle">
+                  <button
+                    type="button"
+                    className={`metric-btn ${entry.metricType === 'reps' ? 'active' : ''}`}
+                    onClick={() => handleMetricTypeChange('reps')}
+                    disabled={isReadOnly}
+                  >
+                    Reps
+                  </button>
+                  <button
+                    type="button"
+                    className={`metric-btn ${entry.metricType === 'duration' ? 'active' : ''}`}
+                    onClick={() => handleMetricTypeChange('duration')}
+                    disabled={isReadOnly}
+                  >
+                    Time
+                  </button>
+                </div>
               </div>
             )}
           </div>
-        </div>
 
-        {showMetricToggle && (
-          <div className="input-group metric-toggle-group">
-            <label>Measure by</label>
-            <div className="metric-toggle">
-              <button
-                type="button"
-                className={`metric-btn ${entry.metricType === 'reps' ? 'active' : ''}`}
-                onClick={() => handleMetricTypeChange('reps')}
-                disabled={isReadOnly}
-              >
-                Reps
-              </button>
-              <button
-                type="button"
-                className={`metric-btn ${entry.metricType === 'duration' ? 'active' : ''}`}
-                onClick={() => handleMetricTypeChange('duration')}
-                disabled={isReadOnly}
-              >
-                Time
-              </button>
+          {/* Row 2: Sets (unified for both reps and duration) */}
+          <div className="exercise-row-details">
+            <div className="sets-container">
+              <div className="sets-header">
+                <span className="sets-label">Sets</span>
+              </div>
+              <div className="sets-list">
+                {entry.sets.map((set, index) => (
+                  <div key={index} className="set-row">
+                    <span className="set-number">{index + 1}</span>
+                    {entry.metricType === 'reps' ? (
+                      <>
+                        <div className="input-group number-group">
+                          <label>Weight (kg)</label>
+                          <input
+                            type="number"
+                            value={set.weightKg ?? ''}
+                            onChange={(e) => handleSetChange(index, 'weightKg', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            step="0.5"
+                            className="number-input"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                        <div className="input-group number-group">
+                          <label>Reps</label>
+                          <input
+                            type="number"
+                            value={set.reps ?? ''}
+                            onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            className="number-input"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="input-group number-group duration-input">
+                        <label>Duration (sec)</label>
+                        <input
+                          type="number"
+                          value={set.reps ?? ''}
+                          onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          className="number-input"
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    )}
+                    <div className="input-group number-group">
+                      <label>Rest (sec)</label>
+                      <input
+                        type="number"
+                        value={set.restSeconds ?? ''}
+                        onChange={(e) => handleSetChange(index, 'restSeconds', e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        className="number-input"
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                    {!isReadOnly && (
+                      <div className="set-actions">
+                        <button
+                          type="button"
+                          className="copy-set-btn"
+                          onClick={() => handleCopySet(index)}
+                          title="Copy set"
+                        >
+                          ⧉
+                        </button>
+                        <button
+                          type="button"
+                          className="remove-set-btn"
+                          onClick={() => handleRemoveSet(index)}
+                          title={entry.sets.length === 1 ? "Clear set" : "Remove set"}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Row 2: Sets or Duration */}
-      <div className="exercise-row-details">
-        {(section === 'STRENGTH' || entry.metricType === 'reps') ? (
-          <div className="sets-container">
-            <div className="sets-header">
-              <span className="sets-label">Sets</span>
-              {!isReadOnly && (
-                <button 
-                  type="button" 
-                  className="add-set-btn"
-                  onClick={handleAddSet}
-                  title="Add set"
-                >
-                  + Add Set
-                </button>
-              )}
-            </div>
-            <div className="sets-list">
-              {entry.sets.map((set, index) => (
-                <div key={index} className="set-row">
-                  <span className="set-number">{index + 1}</span>
-                  <div className="input-group number-group">
-                    <label>Reps</label>
-                    <input
-                      type="number"
-                      value={set.reps ?? ''}
-                      onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      className="number-input"
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="input-group number-group">
-                    <label>Weight (kg)</label>
-                    <input
-                      type="number"
-                      value={set.weightKg ?? ''}
-                      onChange={(e) => handleSetChange(index, 'weightKg', e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="0.5"
-                      className="number-input"
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="input-group number-group">
-                    <label>Rest (sec)</label>
-                    <input
-                      type="number"
-                      value={set.restSeconds ?? ''}
-                      onChange={(e) => handleSetChange(index, 'restSeconds', e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      className="number-input"
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  {!isReadOnly && entry.sets.length > 1 && (
-                    <button
-                      type="button"
-                      className="remove-set-btn"
-                      onClick={() => handleRemoveSet(index)}
-                      title="Remove set"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="input-group number-group">
-              <label>Minutes</label>
-              <input
-                type="number"
-                value={durationMinutes ?? ''}
-                onChange={(e) => handleDurationMinutesChange(e.target.value)}
-                placeholder="0"
-                min="0"
-                className="number-input"
-                disabled={isReadOnly}
-              />
-            </div>
-            <div className="input-group number-group">
-              <label>Seconds</label>
-              <input
-                type="number"
-                value={durationRemainingSeconds ?? ''}
-                onChange={(e) => handleDurationSecondsChange(e.target.value)}
-                placeholder="0"
-                min="0"
-                max="59"
-                className="number-input"
-                disabled={isReadOnly}
-              />
-            </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Row 3: Action buttons */}
       <div className="exercise-row-actions">
         <div className="action-buttons">
+          {!isReadOnly && (
+            <button 
+              type="button" 
+              className="add-set-btn"
+              onClick={handleAddSet}
+              title="Add set"
+            >
+              + Set
+            </button>
+          )}
+
           {(!entry.isSaved || entry.isEditing) && (
             <button
               className={`save-button ${!canSave ? 'disabled' : ''}`}
@@ -472,7 +497,7 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
           {entry.isSaved && !entry.isEditing && (
             <button
               className="edit-button"
-              onClick={handleEdit}
+              onClick={() => { handleEdit(); setIsCollapsed(false); }}
               aria-label="Edit exercise"
               title="Edit exercise"
             >

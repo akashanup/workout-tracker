@@ -60,19 +60,27 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
 #### For each section
 
 - There can be multiple exercise rows.
-- An exercise row is organized in **3 rows**:
+- Each exercise row is **collapsible** when saved:
+  - **Collapsed state**: Shows exercise name and set count badge, click to expand
+  - **Expanded state**: Shows all inputs and action buttons
+- An exercise row is organized in **3 rows** (when expanded):
   - **Row 1**: Exercise name (autocomplete input) + Measure by toggle (for non-strength sections)
-  - **Row 2**: Metric inputs (Reps/Sets or Minutes/Seconds) + Rest time - all fields expand to fill the row
-  - **Row 3**: Action buttons (Save, Edit, Delete) aligned to the right
+  - **Row 2**: Sets container - each set shows Weight (kg), Reps/Duration, Rest time + Copy/Delete buttons
+  - **Row 3**: Action buttons (+ Set, Save/Edit, Delete) aligned to the right
 - For non-strength sections (Warmup, Cardio, Core):
   - **Metric type toggle** to switch between:
-    - **Reps mode**: Number of repetitions (integer) + Number of sets (integer)
-    - **Duration mode**: Duration input (minutes and seconds)
+    - **Reps mode**: Weight (kg) + Reps + Rest time per set
+    - **Duration mode**: Duration (seconds) + Rest time per set
+  - Both modes support multiple sets
 - For the Strength section specifically:
+  - Exercises are **grouped by body part** with collapsible subsections
   - Row 1 shows: Body Part dropdown + Exercise name (both fill 50% of the row)
-  - Multiple body parts per day should be supported.
-  - Each exercise row must be associated with a body part (dropdown).
-  - Always uses reps/sets mode (no duration toggle).
+  - Each body part group can be expanded/collapsed independently
+  - Always uses reps mode (Weight → Reps → Rest)
+- **Set management**:
+  - Copy button (⧉) duplicates a set with all its values
+  - Delete button (×) removes a set (or clears values if last set)
+  - + Set button in action row adds new empty set
 - **Multi-section exercises**:
   - Some exercises (e.g., Running, Cycling, Cross Trainer) can be used in multiple sections.
   - These exercises have an `applicableSections` array (e.g., `['WARMUP', 'CARDIO']`).
@@ -123,20 +131,17 @@ Exercises can be tracked using two different metric types:
 - **Reps-based** (`metricType: 'reps'`):
   - Each SET is stored as a separate row with its own reps, weightKg, and restSeconds
   - Allows different values per set (e.g., pyramid sets: 12 reps → 10 reps → 8 reps)
-  - Users can add/remove sets dynamically
+  - Users can add/copy/remove sets dynamically
   - Default for Strength section exercises
+  - UI order: Weight (kg) → Reps → Rest (sec)
 
 - **Duration-based** (`metricType: 'duration'`):
-  - Uses `durationSeconds` field (stored as total seconds, displayed as minutes:seconds)
+  - Each SET is stored as a separate row with durationSeconds and restSeconds
+  - Supports multiple sets (e.g., 3 sets of 30-second planks with rest between)
   - Time-based tracking for exercises like Running, Planks, Cycling, Stretches
   - Common for Warmup, Cardio, and Core sections
 
 The UI shows a toggle between "Reps" and "Time" modes for Warmup, Cardio, and Core sections. Strength section always uses reps mode.
-  - Uses `durationSeconds` field (stored as total seconds, displayed as minutes:seconds)
-  - Time-based tracking for exercises like Running, Planks, Cycling, Stretches
-  - Common for Warmup, Cardio, and Core sections
-
-The UI shows a toggle between "Reps" and "Time" modes for Warmup, Cardio, and Core sections. Strength section always uses reps/sets mode.
 
 ### MULTI-SECTION EXERCISES
 

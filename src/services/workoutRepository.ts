@@ -241,20 +241,26 @@ export async function loadWorkoutForDate(
     // Use first entry as the base
     const firstEntry = setEntries[0];
     
-    // Build sets array for reps-based exercises
-    const sets: ExerciseSet[] = setEntries
-      .filter(e => e.metricType === 'reps')
-      .map(e => ({
+    // Build sets array - works for both reps and duration exercises
+    let sets: ExerciseSet[];
+    
+    if (firstEntry.metricType === 'duration') {
+      // For duration exercises: duration is stored in durationSeconds column
+      sets = setEntries.map(e => ({
+        setNumber: e.setNumber || 1,
+        reps: e.durationSeconds, // Duration in seconds stored in reps field for UI
+        weightKg: null,
+        restSeconds: e.restSeconds
+      }));
+    } else {
+      // For reps exercises
+      sets = setEntries.map(e => ({
         setNumber: e.setNumber || 1,
         reps: e.reps,
         weightKg: e.weightKg,
         restSeconds: e.restSeconds
       }));
-
-    // For duration-based, use the first entry's duration
-    const durationSeconds = firstEntry.metricType === 'duration' 
-      ? firstEntry.durationSeconds 
-      : null;
+    }
 
     const uiEntry: WorkoutEntryUI = {
       id: firstEntry.id, // Use first entry's ID as the exercise group ID
@@ -267,7 +273,7 @@ export async function loadWorkoutForDate(
       customExerciseName: firstEntry.customExerciseName,
       metricType: firstEntry.metricType,
       sets: sets.length > 0 ? sets : [{ setNumber: 1, reps: null, weightKg: null, restSeconds: null }],
-      durationSeconds,
+      durationSeconds: null, // No longer used, kept for compatibility
       isSaved: true
     };
 
@@ -393,27 +399,28 @@ export async function saveWorkoutForDate(
   const values: (string | number)[][] = [];
   
   allNewEntries.forEach(entry => {
-    if (entry.metricType === 'duration') {
-      // For duration-based exercises, save one row
-      values.push([
-        entry.id || generateId(),
-        date,
-        entry.section,
-        entry.bodyPartId || '',
-        entry.exerciseId || '',
-        entry.customExerciseName || '',
-        entry.metricType,
-        1, // setNumber
-        '', // reps (not used for duration)
-        '', // weightKg (not used for duration)
-        entry.durationSeconds ?? '',
-        '' // restSeconds (not typically used for duration)
-      ]);
-    } else {
-      // For reps-based exercises, save each set as a separate row
-      entry.sets.forEach((set, index) => {
+    // All exercises now use sets - save each set as a separate row
+    entry.sets.forEach((set, index) => {
+      if (entry.metricType === 'duration') {
+        // For duration-based exercises: reps field stores duration in seconds
         values.push([
-          index === 0 ? (entry.id || generateId()) : generateId(), // First set uses exercise ID
+          index === 0 ? (entry.id || generateId()) : generateId(),
+          date,
+          entry.section,
+          entry.bodyPartId || '',
+          entry.exerciseId || '',
+          entry.customExerciseName || '',
+          entry.metricType,
+          set.setNumber || (index + 1),
+          '', // reps (not used for duration display)
+          '', // weightKg (not used for duration)
+          set.reps ?? '', // duration in seconds stored in reps field
+          set.restSeconds ?? ''
+        ]);
+      } else {
+        // For reps-based exercises
+        values.push([
+          index === 0 ? (entry.id || generateId()) : generateId(),
           date,
           entry.section,
           entry.bodyPartId || '',
@@ -426,8 +433,8 @@ export async function saveWorkoutForDate(
           '', // durationSeconds (not used for reps)
           set.restSeconds ?? ''
         ]);
-      });
-    }
+      }
+    });
   });
 
   // Append new rows

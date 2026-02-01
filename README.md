@@ -12,15 +12,19 @@ A Progressive Web App (PWA) for tracking workouts using Google Sheets as the dat
 - 👤 **User profile display** - Shows your Google profile picture and name
 - 📅 **Week-based navigation** - Easy date selection with weekly view
 - 🏋️ **Four workout sections** - Warm-up, Strength, Cardio, and Core (expandable/collapsible)
-- ⏱️ **Flexible exercise tracking** - Track exercises by reps/sets OR duration (minutes/seconds)
+- 💪 **Body part grouping** - Strength exercises are grouped by body part with collapsible subsections
+- ⏱️ **Flexible exercise tracking** - Track exercises by reps/sets OR duration (both support multiple sets)
 - 🎯 **Per-set tracking** - Each set records its own reps, weight (kg), and rest time independently
+- 📋 **Copy & delete sets** - Easily duplicate or remove individual sets
+- 🔄 **Collapsible exercises** - Saved exercises collapse to show name and set count, expand to edit
 - 🔄 **Multi-section exercises** - Some exercises (e.g., Running, Cycling) can be used in both Warmup and Cardio
-- 🔍 **Autocomplete exercise input** - Single input field with suggestions as you type, including option to add custom exercises
+- 🔍 **Autocomplete exercise input** - Single input field with deduplicated suggestions as you type
 - ✏️ **Per-exercise save/edit/delete** - Individual controls for each exercise row
 - ✅ **Smart validation** - Save button only enabled when exercise has complete data
 - 📐 **Responsive full-width layout** - All input fields expand to fill available space
 - 💾 **Smart spreadsheet management** - Automatically finds existing sheet or creates a new one
 - 🔍 **Configurable sheet name** - Custom name via environment variable (defaults to "MyWorkoutTracker")
+- 🔄 **Auto token refresh** - Automatically refreshes OAuth token before expiry to prevent logout
 - ⚠️ **Smart error handling** - User-friendly messages for token expiry and network errors
 
 ## Tech Stack
@@ -192,11 +196,14 @@ Exercises can be tracked using two different metric types:
 
 - **Reps-based** (`metricType: 'reps'`): Each set records reps, weight (kg), and rest time individually
   - Allows different reps/weight per set (e.g., pyramid sets, drop sets)
-  - Add/remove sets dynamically
+  - Add/copy/remove sets dynamically
   - Default for Strength section
-- **Duration-based** (`metricType: 'duration'`): Time-based tracking for exercises like Running, Planks, Cycling
+- **Duration-based** (`metricType: 'duration'`): Each set records duration (seconds) and rest time
+  - Supports multiple sets (e.g., 3 sets of 30-second planks)
+  - Duration value stored in durationSeconds column per set
+  - Common for Warmup, Cardio, and Core sections
 
-The UI shows the appropriate input fields based on the selected metric type.
+The UI shows the appropriate input fields based on the selected metric type. Weight input appears before Reps for better usability.
 
 ### Multi-Section Exercises
 

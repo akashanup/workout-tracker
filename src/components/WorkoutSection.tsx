@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { WorkoutEntryUI, Exercise, BodyPart, SectionType } from '../types/models';
 import ExerciseRow from './ExerciseRow';
 import './WorkoutSection.css';
@@ -26,6 +26,13 @@ const SECTION_CONFIG: Record<SectionType, { color: string; bgColor: string; icon
   CORE: { color: '#8b5cf6', bgColor: '#ede9fe', icon: '🎯' }
 };
 
+// Group entries by body part (for strength section)
+interface BodyPartGroup {
+  bodyPartId: string | null;
+  bodyPartName: string;
+  entries: { entry: WorkoutEntryUI; originalIndex: number }[];
+}
+
 const WorkoutSection: React.FC<WorkoutSectionProps> = ({
   title,
   section,
@@ -41,10 +48,64 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
   defaultExpanded = true
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [expandedBodyParts, setExpandedBodyParts] = useState<Set<string>>(new Set(['all']));
   const config = SECTION_CONFIG[section];
+
+  // Group entries by body part for strength section
+  const bodyPartGroups = useMemo((): BodyPartGroup[] => {
+    if (section !== 'STRENGTH') return [];
+    
+    const groups = new Map<string | null, BodyPartGroup>();
+    
+    entries.forEach((entry, originalIndex) => {
+      const key = entry.bodyPartId;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          bodyPartId: key,
+          bodyPartName: entry.bodyPartName || 'Unassigned',
+          entries: []
+        });
+      }
+      groups.get(key)!.entries.push({ entry, originalIndex });
+    });
+    
+    // Sort by body part name, with unassigned last
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.bodyPartId === null) return 1;
+      if (b.bodyPartId === null) return -1;
+      return a.bodyPartName.localeCompare(b.bodyPartName);
+    });
+  }, [entries, section]);
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
+  };
+
+  const toggleBodyPart = (bodyPartId: string | null) => {
+    const key = bodyPartId || 'unassigned';
+    const newExpanded = new Set(expandedBodyParts);
+    
+    // Remove 'all' when user starts interacting with individual body parts
+    if (newExpanded.has('all')) {
+      newExpanded.delete('all');
+      // Add all body part keys except the one being toggled (collapsed)
+      bodyPartGroups.forEach(group => {
+        const groupKey = group.bodyPartId || 'unassigned';
+        if (groupKey !== key) {
+          newExpanded.add(groupKey);
+        }
+      });
+    } else if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedBodyParts(newExpanded);
+  };
+
+  const isBodyPartExpanded = (bodyPartId: string | null) => {
+    const key = bodyPartId || 'unassigned';
+    return expandedBodyParts.has(key) || expandedBodyParts.has('all');
   };
 
   return (
@@ -85,7 +146,52 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
               Add your first {section.toLowerCase()} exercise
             </button>
           </div>
+        ) : section === 'STRENGTH' ? (
+          /* Strength section: Group by body part */
+          <>
+            {bodyPartGroups.map((group) => (
+              <div key={group.bodyPartId || 'unassigned'} className="body-part-group-container">
+                <div 
+                  className="body-part-header"
+                  onClick={() => toggleBodyPart(group.bodyPartId)}
+                >
+                  <span className={`bp-expand-icon ${isBodyPartExpanded(group.bodyPartId) ? 'expanded' : ''}`}>›</span>
+                  <span className="body-part-name">{group.bodyPartName}</span>
+                  <span className="body-part-count">{group.entries.length}</span>
+                </div>
+                {isBodyPartExpanded(group.bodyPartId) && (
+                  <div className="body-part-exercises">
+                    {group.entries.map(({ entry, originalIndex }) => (
+                      <ExerciseRow
+                        key={entry.id}
+                        entry={entry}
+                        exercises={exercises}
+                        bodyParts={bodyParts}
+                        section={section}
+                        onUpdate={(updated) => onUpdateEntry(originalIndex, updated)}
+                        onDelete={() => onDeleteEntry(originalIndex)}
+                        onSave={() => onSaveEntry(originalIndex)}
+                        onAddExercise={onAddExercise}
+                        isSaving={isSaving}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            <button 
+              className="add-exercise-button"
+              onClick={onAddEntry}
+              style={{ 
+                color: config.color,
+                borderColor: config.color
+              }}
+            >
+              + Add exercise
+            </button>
+          </>
         ) : (
+          /* Other sections: Flat list */
           <>
             {entries.map((entry, index) => (
               <ExerciseRow

@@ -208,8 +208,10 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ sheetId, onSignOut, userPictu
         throw new Error('Validation failed');
       }
     } else if (entry.metricType === 'duration') {
-      if (!entry.durationSeconds || entry.durationSeconds <= 0) {
-        setError('Duration must be greater than 0');
+      // For duration, we use reps field to store duration in seconds per set
+      const hasValidDuration = entry.sets.some(s => s.reps && s.reps > 0);
+      if (!hasValidDuration) {
+        setError('At least one set must have duration > 0');
         throw new Error('Validation failed');
       }
     }

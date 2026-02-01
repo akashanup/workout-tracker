@@ -17,6 +17,50 @@
   pointer-events: none;
 }
 
+/* Collapsible header */
+.exercise-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+.exercise-header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.collapse-icon {
+  font-size: 16px;
+  font-weight: bold;
+  color: #6b7280;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.collapse-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.exercise-display-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 15px;
+}
+
+.set-count-badge {
+  background: #e0e7ff;
+  color: #4f46e5;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* Delete confirmation overlay */
 .delete-confirm-overlay {
   position: absolute;
@@ -539,6 +583,46 @@
 
 .remove-set-btn:hover {
   background: #fee2e2;
+}
+
+/* Set actions container */
+.set-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Copy set button */
+.copy-set-btn {
+  width: 32px;
+  height: 42px;
+  border: none;
+  background: #e0f2fe;
+  color: #0284c7;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.copy-set-btn:hover {
+  background: #bae6fd;
+}
+
+/* Duration input wider */
+.duration-input {
+  flex: 2;
+  min-width: 100px;
+}
+
+/* Add set button in action row */
+.action-buttons .add-set-btn {
+  height: 40px;
+  padding: 0 12px;
 }
 
 /* Responsive adjustments for sets */
