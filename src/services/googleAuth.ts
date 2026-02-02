@@ -103,6 +103,9 @@ let tokenClient: TokenClient | null = null;
 let gapiInitialized = false;
 let gisInitialized = false;
 let tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let isRefreshing = false;
+let refreshAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 2;
 
 // Callbacks for auth state changes
 type AuthCallback = (state: AuthState) => void;
@@ -201,8 +204,24 @@ async function fetchUserInfo(accessToken: string): Promise<void> {
 function handleTokenResponse(response: TokenResponse): void {
   if (response.error) {
     console.error('Token error:', response.error);
+    // If silent refresh failed, try with user prompt on next attempt
+    if (isRefreshing && refreshAttempts < MAX_REFRESH_ATTEMPTS) {
+      refreshAttempts++;
+      console.log(`Silent refresh failed, attempt ${refreshAttempts}/${MAX_REFRESH_ATTEMPTS}`);
+      // Try again with user prompt
+      setTimeout(() => {
+        if (tokenClient) {
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+      }, 1000);
+    }
+    isRefreshing = false;
     return;
   }
+
+  // Reset refresh state on success
+  isRefreshing = false;
+  refreshAttempts = 0;
 
   // Store the token
   const expiryTime = Date.now() + response.expires_in * 1000;
@@ -255,6 +274,14 @@ function refreshToken(): void {
     return;
   }
 
+  if (isRefreshing) {
+    console.log('Token refresh already in progress');
+    return;
+  }
+
+  isRefreshing = true;
+  refreshAttempts = 0;
+  
   // Request a new token without prompt (silent refresh)
   // This works if the user has previously granted consent
   tokenClient.requestAccessToken({ prompt: '' });

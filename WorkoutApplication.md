@@ -78,7 +78,8 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   - Both modes support multiple sets
   - Duration is entered as Minutes + Seconds (stored as total seconds in backend)
 - For the Strength section specifically:
-  - Exercises are **grouped by body part** with collapsible subsections
+  - **New exercises shown at top** - Unsaved exercises appear above body part groups to prevent UI issues
+  - **Saved exercises grouped by body part** with collapsible subsections
   - Row 1 shows: Body Part dropdown + Exercise name (both fill 50% of the row)
   - Each body part group can be expanded/collapsed independently
   - Always uses reps mode (Weight → Reps → Rest)
@@ -90,7 +91,7 @@ Help me build an MVP Progressive Web App (PWA) for workout tracking that:
   - Save (✓) - Saves the exercise to the sheet
   - Cancel (✕) - Reverts changes to original state (for edits) or deletes (for new)
   - Edit (✎) - Enters edit mode for saved exercises
-  - Delete (🗑) - Removes the exercise entirely
+  - Delete (🗑) - Removes the exercise entirely (with confirmation if data exists)
 - **Multi-section exercises**:
   - Some exercises (e.g., Running, Cycling, Cross Trainer) can be used in multiple sections.
   - These exercises have an `applicableSections` array (e.g., `['WARMUP', 'CARDIO']`).

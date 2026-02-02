@@ -112,7 +112,9 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
   };
 
   // Handle delete with confirmation
-  const handleDeleteClick = () => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault();
     if (hasData) {
       setShowDeleteConfirm(true);
     } else {
@@ -129,12 +131,14 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     setShowDeleteConfirm(false);
     await performDelete();
   };
 
-  const handleCancelDelete = () => {
+  const handleCancelDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setShowDeleteConfirm(false);
   };
 
@@ -283,8 +287,8 @@ const ExerciseRow: React.FC<ExerciseRowProps> = ({
     <div className={`exercise-row ${isReadOnly ? 'read-only' : ''} ${isCurrentlySaving ? 'saving' : ''} ${section !== 'STRENGTH' ? 'non-strength' : ''}`}>
       {/* Delete confirmation overlay */}
       {showDeleteConfirm && (
-        <div className="delete-confirm-overlay">
-          <div className="delete-confirm-dialog">
+        <div className="delete-confirm-overlay" onClick={(e) => e.stopPropagation()}>
+          <div className="delete-confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <p>Delete this exercise?</p>
             <div className="delete-confirm-buttons">
               <button className="confirm-delete-btn" onClick={handleConfirmDelete}>Delete</button>

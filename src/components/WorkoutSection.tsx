@@ -51,13 +51,32 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
   const [expandedBodyParts, setExpandedBodyParts] = useState<Set<string>>(new Set());
   const config = SECTION_CONFIG[section];
 
-  // Group entries by body part for strength section
+  // Separate unsaved entries from saved entries for Strength section
+  // Unsaved entries are shown at the top without grouping to prevent remount on body part change
+  const { unsavedEntries, savedEntries } = useMemo(() => {
+    if (section !== 'STRENGTH') return { unsavedEntries: [], savedEntries: entries };
+    const unsaved: { entry: WorkoutEntryUI; originalIndex: number }[] = [];
+    const saved: WorkoutEntryUI[] = [];
+    entries.forEach((entry, index) => {
+      if (!entry.isSaved) {
+        unsaved.push({ entry, originalIndex: index });
+      } else {
+        saved.push(entry);
+      }
+    });
+    return { unsavedEntries: unsaved, savedEntries: saved };
+  }, [entries, section]);
+
+  // Group only saved entries by body part for strength section
   const bodyPartGroups = useMemo((): BodyPartGroup[] => {
     if (section !== 'STRENGTH') return [];
     
     const groups = new Map<string | null, BodyPartGroup>();
     
-    entries.forEach((entry, originalIndex) => {
+    // Only group saved entries
+    savedEntries.forEach((entry) => {
+      // Find original index in the full entries array
+      const originalIndex = entries.findIndex(e => e.id === entry.id);
       const key = entry.bodyPartId;
       if (!groups.has(key)) {
         groups.set(key, {
@@ -75,7 +94,7 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
       if (b.bodyPartId === null) return -1;
       return a.bodyPartName.localeCompare(b.bodyPartName);
     });
-  }, [entries, section]);
+  }, [savedEntries, entries, section]);
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
@@ -147,8 +166,24 @@ const WorkoutSection: React.FC<WorkoutSectionProps> = ({
             </button>
           </div>
         ) : section === 'STRENGTH' ? (
-          /* Strength section: Group by body part */
+          /* Strength section: Unsaved at top, then group saved by body part */
           <>
+            {/* Unsaved entries at top - not grouped to prevent remount */}
+            {unsavedEntries.map(({ entry, originalIndex }) => (
+              <ExerciseRow
+                key={entry.id}
+                entry={entry}
+                exercises={exercises}
+                bodyParts={bodyParts}
+                section={section}
+                onUpdate={(updated) => onUpdateEntry(originalIndex, updated)}
+                onDelete={() => onDeleteEntry(originalIndex)}
+                onSave={() => onSaveEntry(originalIndex)}
+                onAddExercise={onAddExercise}
+                isSaving={isSaving}
+              />
+            ))}
+            {/* Saved entries grouped by body part */}
             {bodyPartGroups.map((group) => (
               <div key={group.bodyPartId || 'unassigned'} className="body-part-group-container">
                 <div 

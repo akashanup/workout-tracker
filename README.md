@@ -26,7 +26,7 @@ A Progressive Web App (PWA) for tracking workouts using Google Sheets as the dat
 - 📐 **Responsive full-width layout** - All input fields expand to fill available space
 - 💾 **Smart spreadsheet management** - Automatically finds existing sheet or creates a new one
 - 🔍 **Configurable sheet name** - Custom name via environment variable (defaults to "MyWorkoutTracker")
-- 🔄 **Auto token refresh** - Automatically refreshes OAuth token before expiry to prevent logout
+- 🔄 **Auto token refresh** - Automatically refreshes OAuth token before expiry; prompts user if silent refresh fails
 - ⚠️ **Smart error handling** - User-friendly messages for token expiry and network errors
 
 ## Tech Stack
